@@ -1,4 +1,3 @@
-# STATS 5243: Applied Data Science 
-## Final Project 
+# STATS 5243: Applied Data Science Final Project 
 
-To be updated. 
+Authors: Yaxin Deng, Xiaomeng Huang, Min Sun, Anderson Nelson 
