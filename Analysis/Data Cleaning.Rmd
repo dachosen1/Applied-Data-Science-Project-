@@ -1,0 +1,22 @@
+---
+title: "Data Analysis"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r library, include=FALSE}
+library(data.table)
+library(DT)
+```
+
+
+```{r pressure, echo=FALSE}
+wine.data.1 <- fread(input = 'Data/winemag-data_first150k.csv')
+wine.data.2 <- fread(input = 'Data/winemag-data-130k-v2.csv')
+
+```
