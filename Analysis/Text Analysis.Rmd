@@ -1,0 +1,184 @@
+---
+title: "Text Analysis"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r library, include=FALSE}
+library(data.table)
+library(DT)
+library(tidyverse)
+library(tidytext)
+library(qdap)
+library(ggthemes)
+library(wordcloud)
+
+library(RColorBrewer)
+```
+
+
+```{r read data, echo=FALSE}
+dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
+```
+
+```{r constants}
+country.name <- "country"
+description.name <- "description"           
+designation.name <- "designation"           
+points.name <- "points"               
+price.name <- "price"                 
+province.name <- "province"              
+region_1.name <- "region_1"              
+region_2.name <- "region_2"             
+taster.name <- "taster_name"           
+twitter.name <- "taster_twitter_handle" 
+title.name <- "title"                 
+variaty.name <- "variety"              
+winery.name <- "winery"               
+
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+
+single.var <- c(points.name, price.name, country.name)
+```
+
+
+
+```{r}
+# filter data set
+subdat <- dat %>%
+ select(variaty.name,country.name,points.name,province.name, winery.name,description.name)
+
+head(subdat)
+# count length of 
+subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
+```
+
+```{r}
+# summary of description length
+summary(subdat$descriptioncount)
+
+# Description distribution
+ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill = 'royalblue4') + 
+ theme_classic() +
+ ggtitle('Description word length Distribution') + 
+ xlab('Number of words used in Description') + 
+ ylab('Number of Observations') + 
+ theme(plot.title = element_text(hjust = 0.5)) + 
+ ylim(0,25000) 
+```
+
+```{r}
+
+# top words 
+subdat[, freq_terms(text.var = subdat$description, stopwords = Top200Words)]
+
+# Sentiment Analysis
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('bing')) %>%
+group_by(sentiment) %>%
+count() %>%
+ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ ylim(0,400000) + theme(plot.title = element_text(hjust = 0.5)) 
+
+
+# Sentiment Analysis ny country 
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('bing')) %>%
+group_by(country,sentiment) %>%
+summarize(n = n())%>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country, y=proportion,fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+```{r}
+# Sentiment Analysis
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(sentiment) %>%
+count() %>%
+ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ #ylim(0,400000) + 
+ theme(plot.title = element_text(hjust = 0.5)) 
+
+
+# Sentiment Analysis ny country 
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(country,sentiment) %>%
+summarize(n = n()) %>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country, y=proportion,fill=sentiment, col = sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+ group_by(sentiment,points) %>%
+ count()%>%
+ group_by(sentiment, points) %>%
+ summarize(n = mean(n)) %>%
+ ungroup() %>%
+ ggplot(aes(x=points, y=n, fill=points)) +
+  geom_col() + facet_wrap(~sentiment) +
+  guides(fill=F) + coord_flip() +theme_classic() + ylab('Number of Observation') + 
+  xlab('Points') + ggtitle('Emotion') + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+
+
+```{r}
+
+# World cloud data 
+wordcloudData <- 
+ subdat%>%
+ unnest_tokens(output = word, input = description) %>%
+ anti_join(stop_words)%>%
+ group_by(word)%>%
+ summarize(freq = n())%>%
+ arrange(desc(freq))%>%
+ ungroup()%>%
+ data.frame()
+
+wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
+          max.words = 100, colors = brewer.pal(10,'Spectral'))
+
+```
+
+
+
+```{r}
+?brewer.pal()
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+

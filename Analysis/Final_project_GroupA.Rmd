@@ -95,6 +95,7 @@ inputPanel(
 
 renderPlot({
   tab <- t(dat[,lapply(X=.SD,FUN="miss.value")])
+  
   tab2 <- data.table(var=names(dat),miss=as.numeric(tab))
   barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1,
           main="Missing Rate",ylab="Percentage", ylim=c(0,100),col="dodgerblue")
