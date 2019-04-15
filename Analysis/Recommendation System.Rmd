@@ -46,34 +46,79 @@ dat <- dat %>%
 
 dat <- dat[complete.cases(dat)]
 
-
 # convert into a s4 class 
 data_matrix <- as(dat, 'realRatingMatrix')
 image(data_matrix[1:19,1:50])
-# 
-data_matrix_zscore <- normalize(x = data_matrix, method='Z-score')
-image(data_matrix_zscore[1:19,1:50])
 
-data_matrix_center <- normalize(x = data_matrix, method='center')
-image(data_matrix_center[1:19,1:50])
+# z score normalization 
+data_matrix_znorm <-normalize(x = data_matrix, method='Z-score')
+
+image
+# center normalization 
+data_matrix_cnorm <-normalize(x = data_matrix, method='center')
 ```
 
 ```{r}
+
 recommenderRegistry$get_entry("POPULAR", type ="realRatingMatrix")
+# recommendation for normal data 
+recom <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
+pred <- predict(recom,data_matrix, n = 2)
+as.data.frame(mapply(c, getList(pred), 
+                     getRatings(pred), 
+                     as.list(rowMeans(data_matrix, na.rm = TRUE))))
+
+#as(getTopNLists(x = pred, 2), 'list')
+
+# recommendation for normalized data by z score
+recom2 <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
+pred2 <- predict(recom,data_matrix_znorm, n = 2)
+as.data.frame(mapply(c, getList(pred2), 
+                     getRatings(pred2), 
+                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
+#as(getTopNLists(x = pred2, 2), 'list')
+
+# recommendation for normalized data by center
+recom3 <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
+pred3 <- predict(recom,data_matrix_znorm, n = 2)
+as.data.frame(mapply(c, getList(pred3), 
+                     getRatings(pred3), 
+                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
+#as(getTopNLists(x = pred3, 2), 'list')
+
 ```
 
 ```{r}
 
-recom <-Recommender(data = data_matrix, "POPULAR")
+recommenderRegistry$get_entry('UBCF', type = 'realRatingMatrix')
+# recommendation for normal data 
+recom4 <- Recommender(data_matrix,method='UBCF',parameter = list(method = 'Cosine', nn = 2))
+pred4 <- predict(recom4,data_matrix, type = 'ratingMatrix')
+as.data.frame(mapply(c, getList(pred4), 
+                     getRatings(pred4), 
+                     as.list(rowMeans(data_matrix, na.rm = TRUE))))
 
+#as(getTopNLists(x = pred4, 2), 'list')
 
+# recommendation for normal data 
+recom5 <- Recommender(data_matrix_znorm,method='UBCF',parameter = list(
+ method = 'Cosine', nn = 2))
+pred5 <- predict(recom5,data_matrix_znorm, type = 'ratingMatrix')
+as.data.frame(mapply(c, getList(pred5), 
+                     getRatings(pred5), 
+                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
+#as(getTopNLists(x = pred5, 2), 'list')
+
+# recommendation for normal data 
+recom6 <- Recommender(data_matrix,method='UBCF',parameter = list(
+ method = 'Cosine', nn = 2))
+pred6 <- predict(recom6,data_matrix, type = 'ratingMatrix')
+as.data.frame(mapply(c, getList(pred6), 
+                     getRatings(pred6), 
+                     as.list(rowMeans(data_matrix, na.rm = TRUE))))
+
+as(getTopNLists(x = pred6, 2), 'list')
 ```
 
-```{r}
 
-```
-
-```{r}
-
-```
 
