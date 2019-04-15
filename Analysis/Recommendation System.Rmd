@@ -1,0 +1,79 @@
+---
+title: "Recommendation System"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r library, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(recommenderlab)
+```
+
+
+```{r read data, echo=FALSE}
+dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
+```
+
+```{r constants}
+country.name <- "country"
+description.name <- "description"           
+designation.name <- "designation"           
+points.name <- "points"               
+price.name <- "price"                 
+province.name <- "province"              
+region_1.name <- "region_1"              
+region_2.name <- "region_2"             
+taster.name <- "taster_name"           
+twitter.name <- "taster_twitter_handle" 
+title.name <- "title"                 
+variaty.name <- "variety"              
+winery.name <- "winery"               
+
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+
+single.var <- c(points.name, price.name, country.name)
+```
+
+```{r}
+dat <- dat %>%
+ select(taster_name, variety,points)
+
+dat <- dat[complete.cases(dat)]
+
+
+# convert into a s4 class 
+data_matrix <- as(dat, 'realRatingMatrix')
+image(data_matrix[1:19,1:50])
+# 
+data_matrix_zscore <- normalize(x = data_matrix, method='Z-score')
+image(data_matrix_zscore[1:19,1:50])
+
+data_matrix_center <- normalize(x = data_matrix, method='center')
+image(data_matrix_center[1:19,1:50])
+```
+
+```{r}
+recommenderRegistry$get_entry("POPULAR", type ="realRatingMatrix")
+```
+
+```{r}
+
+recom <-Recommender(data = data_matrix, "POPULAR")
+
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
