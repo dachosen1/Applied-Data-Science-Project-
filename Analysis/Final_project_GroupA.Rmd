@@ -42,7 +42,7 @@ region_2.name <- "region_2"
 taster.name <- "taster_name"           
 twitter.name <- "taster_twitter_handle" 
 title.name <- "title"                 
-variaty.name <- "variety"              
+variety.name <- "variety"              
 winery.name <- "winery"               
 
 dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
