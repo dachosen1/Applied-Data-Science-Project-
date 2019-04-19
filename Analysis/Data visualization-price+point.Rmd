@@ -1,0 +1,115 @@
+---
+title: "Data Analysis"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r library, include=FALSE}
+library(data.table)
+library(DT)
+```
+
+
+```{r read data, echo=FALSE}
+dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
+dat <- dat[,-1]
+
+```
+
+```{r functions}
+percentage.table <- function(x, digits = 1){
+  tab <- table(x)
+  percentage.tab <- 100*tab/(sum(tab))
+  rounded.tab <- round(x = percentage.tab, digits = digits)
+  return(rounded.tab)
+}
+
+round.numerics <- function(x, digits){
+  if(is.numeric(x)){
+    x <- round(x = x, digits = digits)
+  }
+  return(x)
+}
+miss.value <- function(x){
+  miss.rate <- round(100*mean(is.na(x)),2)
+  return(miss.rate)
+}
+
+head(dat)
+```
+
+
+```{r constants}
+country.name <- "country"
+description.name <- "description"           
+designation.name <- "designation"           
+points.name <- "points"               
+price.name <- "price"                 
+province.name <- "province"              
+region_1.name <- "region_1"              
+region_2.name <- "region_2"             
+taster.name <- "taster_name"           
+twitter.name <- "taster_twitter_handle" 
+title.name <- "title"                 
+variaty.name <- "variety"              
+winery.name <- "winery"               
+
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+
+single.var <- c(points.name, price.name, country.name)
+```
+
+
+```{r percentage missing}
+# transpose missing value per column 
+tab <- t(dat[,lapply(X=.SD,FUN="miss.value")])
+tab
+# conver to numeric 
+tab2 <- data.table(var=names(dat),miss=as.numeric(tab))
+
+# create a plot of all the missing rate 
+barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1,
+          main="Missing Rate",ylab="Percentage", ylim=c(0,100),col="dodgerblue")
+
+  text(x = -0.5 + 1.02*1:tab2[, .N], y = -15, labels = tab2$var,srt = 45, cex = 1, pos = 2)
+  space_val=0
+  text(x=-0.4+1:length(tab)*(1+space_val),y=tab,labels=sprintf("%.1f%%",tab),pos=3)
+```
+
+
+```{r points distribution with different price level}
+install.packages("plotly")
+install.packages("gapminder")
+library(ggplot2)
+library(plotly)
+library(gapminder)
+
+breaks <- fivenum(dat$price)
+lables <- c("very cheap","cheap","normal","expensive")
+price.level <- factor(cut(dat$price,breaks,lables))
+dat.new <- cbind(dat,price.level)
+
+
+p <- ggplot(dat.new, aes(price.level, points, fill = price.level)) + 
+  geom_boxplot(notch = T,notchwidth = 0.5) + 
+  ggtitle("Points vs. Price Level") +
+  labs(x="Price Level",y="Points") +
+  geom_violin()+
+  scale_fill_brewer(palette = "Accent") +
+  labs(fill = "price.level")
+
+p <- plotly_build(p)
+
+p$data <- lapply(p$data, FUN = function(x){
+  x$marker = list(opacity = 0)
+  return(x)
+})
+p
+```
+
