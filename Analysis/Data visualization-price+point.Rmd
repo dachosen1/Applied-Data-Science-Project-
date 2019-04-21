@@ -75,7 +75,7 @@ tab2 <- data.table(var=names(dat),miss=as.numeric(tab))
 
 # create a plot of all the missing rate 
 barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1,
-          main="Missing Rate",ylab="Percentage", ylim=c(0,100),col=rainbow(13),border=NA)
+          main="Percentage of Missing Value",ylab="Percentage", ylim=c(0,100),col=rainbow(13),border=NA)
 
   text(x = -0.5 + 1.02*1:tab2[, .N], y = -15, labels = tab2$var,srt = 45, cex = 1, pos = 2)
   space_val=0
