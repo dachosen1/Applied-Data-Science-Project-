@@ -3,7 +3,7 @@
 Authors: Yaxin Deng, Xiaomeng Huang, Min Sun, Anderson Nelson 
 
 
-###  Description: 
+##  Description: 
 The data was scraped from WineEnthusiast on November 22nd, 2017 which contains 13 variables:
 Country: The country that the wine is from 
 - Description: wine reviews
@@ -23,9 +23,9 @@ Country: The country that the wine is from
 We first plan to do data exploration. We plan to check the quality of description and see if there is any misspelling etc.. Next we plan to do sentiment analysis on the description. Then we will to do a variable selection and build a recommendation system. Finally, we plan to do some data visualizations/dynamic application based on the data and our recommendation results.
 
 
-## Question: 
+## Questions: 
 
-#### Step 1: Exploratory Analysis
+### Step 1: Exploratory Analysis
 - How many reviews does each user provide? What percentage of the data has a reviewer?
 - Calculate total reviews by country and the percentage distribution? 
 - What percentage of the dataset is missing? 
@@ -38,11 +38,11 @@ H- ow many Title is in the dataset?  Calculate the total by Titletype?
   - Variety distribution by Region,  Province, Region_1, Region_2, Title
 
 #### Step 2: Cleaning
-
-### Analysis: 
+#### Step 3: Analysis: 
 - What are the factors that influence prices?
 - What kind of segmentation makes sense for this data
 - Create a recommendation system 
 - Text analysis of the data 
-- Create a model that predicts price, evaluate based on RMSE
+- Create a model that predicts price and point evaluate based on RMSE
+  - Quantify the impact of wine description on price and point? Hypothesis is that description is signficant in predicting points, and not significant when predicting price? 
 
