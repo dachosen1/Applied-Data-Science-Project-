@@ -98,6 +98,7 @@ train.tokens.df=apply(train.tokens.matrix,1,term.freq)
 train.tokens.idf=apply(train.tokens.matrix,2,inverse.doc.frq)
 train.tokens.tfidf=apply(train.tokens.df,2,tf.idf,idf=train.tokens.idf)
 #fix incomplete cases
+incomplete.cases=which(!complete.cases(train.tokens.tfidf))
 train.tokens.tfidf[incomplete.cases,]=rep(0.0,ncol(train.tokens.tfidf))
 sum(which(!complete.cases(train.tokens.tfidf)))
 
