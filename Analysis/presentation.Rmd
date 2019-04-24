@@ -193,23 +193,7 @@ dat.new <- cbind(dat,price.level)
 
 ## Exploratory Data Analysis
 
-We divided the prices into quantiles and provided those quantiles with the respective labels `.
-
-The con for this approach is that the dataset has a wide distribution and may not accurately reflect the best cluster for, however each quantile has an equal amount of numeric values. 
-
-To improve this analysis we are considering a cluster analysis to evaluate the categories. 
-
-```{r}
-ggplot(dat.new[!is.na(price.level)], aes(price.level, points, fill = price.level)) + 
-  geom_boxplot(notch = T,notchwidth = 0.5) + 
-  ggtitle("Points vs. Price Level") +
-  labs(x="Price Level",y="Points") +
-  geom_violin()+
-  scale_fill_brewer(palette = "Accent") +
-  labs(fill = "price.level")
-
-table(breaks)
-```
+We mainly explored varibles: country, winery, variety, designation, price, points through data visualization. See flexdashoboard for details.
 
 
 ## Visualization and Insight: 
