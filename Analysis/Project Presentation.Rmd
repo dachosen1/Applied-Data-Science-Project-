@@ -176,7 +176,6 @@ ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() +
 
 
 ## Worldcloud 
-
 ```{r}
 # World cloud data 
 wordcloudData <- 
@@ -192,6 +191,7 @@ wordcloudData <-
 wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
           max.words = 100, colors = brewer.pal(10,'Spectral'))
 ```
+
 ## Seperating Price in 3 categories 
 ```{r}
 install.packages("plotly")
