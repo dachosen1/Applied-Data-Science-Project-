@@ -54,11 +54,16 @@ library(wordcloud)
 library(RColorBrewer)
 library(plotly)
 library(gapminder)
+library(Hmisc)
 library(devtools)
 library(ggbiplot)
 library(factoextra)
 library(FactoMineR)
 library(gridExtra)
+library(tm)
+library(quanteda)
+library(irlba)
+library(caret)
 ```
 
 
@@ -81,11 +86,96 @@ title.name <- "title"
 variaty.name <- "variety"
 winery.name <- "winery"
 
+points.group.name="points.group"
+
 dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
 dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
 
 single.var <- c(points.name, price.name, country.name)
 ```
+
+```{r function}
+round.numerics <- function(x, digits = 0, nearest = 1){
+  if(is.numeric(x)){
+    return(nearest * round(x = x/nearest, digits = digits))
+  }
+  else{
+    return(x)
+  }
+}
+## create formula
+create.formula <- function(outcome.name, input.names, input.patterns=NA, all.data.names=NA, return.as="character"){
+  variable.names.from.patterns <- c()
+  if (!is.na(input.patterns[1]) & !is.na(all.data.names[1])) {
+    pattern <- paste(input.patterns, collapse = "|")
+    variable.names.from.patterns <- all.data.names[grep(pattern = pattern, x = all.data.names)]
+  }
+  all.input.names <- unique(c(input.names, variable.names.from.patterns))
+  all.input.names <- all.input.names[all.input.names !=outcome.name]
+  if (!is.na(all.data.names[1])) {
+    all.input.names <- all.input.names[all.input.names %in% all.data.names]
+  }
+  input.names.delineated <- sprintf("`%s`", all.input.names)
+  the.formula <- sprintf("`%s` ~ %s", outcome.name, paste(input.names.delineated, collapse = " + "))
+  if (return.as == "formula") {
+    return(as.formula(the.formula))
+  }
+  if (return.as != "formula") {
+    return(the.formula)
+  }
+}
+reduce.formula <- function(dat, the.initial.formula, max.categories = NA) {
+  require(data.table)
+  dat <- setDT(dat)
+  
+  the.sides <- strsplit(x = the.initial.formula, split = "~")[[1]]
+  lhs <- trimws(x = the.sides[1], which = "both")
+  lhs.original <- gsub(pattern = "`", replacement = "", x = lhs)
+  if (!(lhs.original %in% names(dat))) {
+    return("Error: Outcome variable is not in names(dat).")
+  }
+  the.pieces.untrimmed <- strsplit(x = the.sides[2], split = "+", fixed = TRUE)[[1]]
+  the.pieces.untrimmed.2 <- gsub(pattern = "`", replacement = "", x = the.pieces.untrimmed, fixed = TRUE)
+  the.pieces.in.names <- trimws(x = the.pieces.untrimmed.2, which = "both")
+  the.pieces <- the.pieces.in.names[the.pieces.in.names %in% names(dat)]
+  num.variables <- length(the.pieces)
+  include.pieces <- logical(num.variables)
+  
+  for (i in 1:num.variables) {
+    unique.values <- dat[, unique(get(the.pieces[i]))]
+    num.unique.values <- length(unique.values)
+    if (num.unique.values >= 2) {
+      include.pieces[i] <- TRUE
+    }
+    if (!is.na(max.categories)) {
+      if (dat[, is.character(get(the.pieces[i])) | is.factor(get(the.pieces[i]))] == TRUE) {
+        if (num.unique.values > max.categories) {
+          include.pieces[i] <- FALSE
+        }
+      }
+    }
+  }
+  pieces.rhs <- sprintf("`%s`", the.pieces[include.pieces == TRUE])
+  rhs <- paste(pieces.rhs, collapse = " + ")
+  the.formula <- sprintf("%s ~ %s", lhs, rhs)
+  return(the.formula)
+}
+# calculating relative term frequency (TF)
+term.frequency <- function(row) {
+  row / sum(row)
+}
+# calculating inverse document frequency (IDF)
+inverse.doc.freq <- function(col) {
+  corpus.size <- length(col)
+  doc.count <- length(which(col > 0))
+  log10(corpus.size / doc.count)
+}
+# calculating TF-IDF.
+tf.idf <- function(x, idf) {
+  x * idf
+}
+```
+
 
 ```{r include=FALSE}
 # filter data set
@@ -156,46 +246,130 @@ subdat %>%
   theme(plot.title = element_text(hjust = 0.5)) + ylim(80, 100)
 
 ```
+## Text Analytics
 
-```{r}
-# top words 
-subdat[, qdap::freq_terms(text.var = subdat$description, stopwords = Top200Words)]
+- Step 1: How many words in every review?
 
-# Sentiment Analysis
-subdat %>%
-unnest_tokens(output = word, input = description) %>%
-inner_join(get_sentiments('nrc')) %>%
-group_by(sentiment) %>%
-count() %>%
-ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() + 
- theme_classic() + guides(fill=F) + 
- ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
- theme(plot.title = element_text(hjust = 0.5)) + xlab('Sentiment: Emotion')
+```{r, warning=FALSE}
+textdat <- dat[,.(description=as.character(get(description.name)),
+                  points=as.numeric(get(points.name)))]
+textdat <- textdat[!(is.na(get(points.name))),]
 ```
 
+```{r text_length, warning=FALSE}
+textdat=textdat[,textlen:=as.numeric(nchar(description))]
+# quantile(textdat$points,probs=seq(0,1,0.25))
+cuts.points <- c(80,86,88,91,100)
+textdat[, eval(points.group.name):=cut2(x=get(points.name), cuts=cuts.points)]
+ggplot(textdat,aes(x=textlen,fill=points.group))+
+  theme_classic()+
+  geom_histogram(binwidth = 5,stat="count")
+```
 
+## Text Analysis
 
-## Worldcloud 
+- Step 2: Data Pipeline
 
-```{r}
-# World cloud data 
-wordcloudData <- 
- subdat%>%
- unnest_tokens(output = word, input = description) %>%
- anti_join(stop_words)%>%
- group_by(word)%>%
- summarize(freq = n())%>%
- arrange(desc(freq))%>%
- ungroup()%>%
- data.frame()
+  > Tokenization
+  > Remove "stopwords"
+  > Stem the words
+  > Create a document-feature matrix
+  
+```{r pipeline ,echo = TRUE}
+# cut reviews into single words
+text.tokens=tokens(textdat$description,what="word",remove_numbers=TRUE, remove_punct=TRUE,remove_symbols = TRUE, remove_hyphens = TRUE) 
+# remove unwanted words
+text.tokens=tokens_select(text.tokens,stopwords(),selection = "remove" ) 
+# word stem
+text.tokens=tokens_wordstem(text.tokens,language = "english") 
+# Create dfm
+text.tokens.dfm <- dfm(text.tokens, tolower = FALSE)
+```
 
+## Text Analysis
+
+- Step 3: WordCloud
+
+```{r wordcloud,fig.hight=3,fig.width=3}
+wordcloudData <- data.table(word=colnames(text.tokens.dfm),freq=colSums(text.tokens.dfm))
+setorderv(wordcloudData,cols="freq",order=-1)
 wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
           max.words = 100, colors = brewer.pal(10,'Spectral'))
 ```
+
+## Text Analysis
+
+- Step 4: Term Frequency-Inverse Document Frequency (TF-IDF)
+
+TF-IDF is a powerful technique for enhancing the information/signal contained within our document-frequency matrix.
+
+  > Normalize all documents in the corpus to be length independent
+  > Penalize terms occur frequency across corpus
+Based on wordcloud plot, we selected top 100 frequetent words. Then we delected some meaningless words, such as "wine","well","show" and etc. In the end, we chose 58 words as our new variables. 
+
+```{r TF-IDF}
+var.chosen<-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh','berri','oak','plum','textur','sweet','appl','full','blend','balanc','bodi','blackberri','light','soft','age','structur','white','crisp','fruiti','citrus','dark','miner','herb','Cabernet','raspberri','vanilla','bright','pepper','firm','green','lemon','juici','peach','concentr','pear','chocol','currant','Pinot','smooth','spici','wood','lime','intens','tart','tannic','tight','herbal','orang')
+# Transform to a matrix and inspect.
+text.tokens.matrix <- as.matrix(text.tokens.dfm[,var.chosen])
+# First step, normalize all documents via TF.
+train.tokens.df.norm <- apply(text.tokens.matrix, 1, term.frequency)
+# Second step, calculate the IDF vector that we will use - both
+# for training data and for test data!
+text.tokens.idf <- apply(text.tokens.matrix, 2, inverse.doc.freq)
+# Lastly, calculate TF-IDF for our training corpus.
+text.tokens.tfidf <-  apply(train.tokens.df.norm, 2, tf.idf, idf = text.tokens.idf)
+datatable(data=round(text.tokens.tfidf[1:10, 1:6],2), rownames=TRUE)
+```
+
+
+## Text Analysis
+
+- Step 5: Prediction
+
+
+
+```{r train_test}
+#dim(text.tokens.matrix)
+text.tokens.df <- cbind(points = textdat$points, data.frame(text.tokens.matrix))
+set.seed(423)
+indexes=createDataPartition(text.tokens.df$points,times=1,p=0.7,list=F) # 70% as train data 
+train=text.tokens.df[indexes,]
+test=text.tokens.df[-indexes,]
+```
+
+```{r model}
+formula.points <- create.formula(outcome.name="points",input.names=var.chosen)
+the.formula <- reduce.formula(dat = train, the.initial.formula = formula.points)
+model <- lm(formula = the.formula, data=train)
+summary(model)
+```
+
+## Text Analysis
+
+- Step 5: Prediction(cont'd)
+
+```{r}
+test$points.est <- predict(model,newdata=test)
+test$points.diff <- test$points.est-test$points
+perc <- round(100*sum(abs(test$points.diff)<=2,na.rm=TRUE)/nrow(test),2)
+```
+
+If we allow a samll difference between actual points and estimated points (eg:abs(diff)=2), the accuracy rate is `r perc`%.
+
+```{r check_performance}
+ggplot(data = test,aes(x= points.diff,y=..density..)) + 
+  geom_histogram(na.rm=TRUE,fill="royalblue4",bins=30) +
+  geom_vline(xintercept =-2, col="red",lty=2,lwd=1.5) +
+  geom_vline(xintercept = 2, col="red",lty=2,lwd=1.5) +
+  theme_classic() +
+  ggtitle('Histogram of Residuals') + 
+  xlab('Residuals') + 
+  ylab('Probability') + 
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
 ## Seperating Price in 3 categories 
 ```{r}
-install.packages("plotly")
-install.packages("gapminder")
 library(ggplot2)
 library(plotly)
 library(gapminder)
