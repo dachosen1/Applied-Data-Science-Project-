@@ -75,7 +75,7 @@ ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill 
 ```{r}
 
 # top words 
-subdat[, freq_terms(text.var = subdat$description, stopwords = Top200Words)]
+subdat[, qdap::freq_terms(text.var = subdat$description, stopwords = Top200Words)]
 
 # Sentiment Analysis
 subdat %>%
@@ -101,7 +101,10 @@ ggplot(aes(x= country, y=proportion,fill=sentiment)) + geom_col() +
  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
  theme(plot.title = element_text(hjust = 0.5)) 
 
+
+
 ```
+
 ```{r}
 # Sentiment Analysis
 subdat %>%
@@ -109,11 +112,10 @@ unnest_tokens(output = word, input = description) %>%
 inner_join(get_sentiments('nrc')) %>%
 group_by(sentiment) %>%
 count() %>%
-ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
+ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() + 
  theme_classic() + guides(fill=F) + 
- ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
- #ylim(0,400000) + 
- theme(plot.title = element_text(hjust = 0.5)) 
+ ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
+ theme(plot.title = element_text(hjust = 0.5)) + xlab('Sentiment: Emotion')
 
 
 # Sentiment Analysis ny country 

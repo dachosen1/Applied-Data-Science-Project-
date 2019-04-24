@@ -1,0 +1,217 @@
+---
+title: 'Applied Data Science Presentation: Group A'
+author: "Yaxin Deng, Xiaomeng Huang, Min Sun and Anderson Nelson"
+date: "4/24/2019"
+output:
+  ioslides_presentation:
+    widescreen: true
+    smaller: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Data set overview 
+
+We used Wine Reviews  data which was scraped from *WineEntusiast* website on November 22nd, 2017 by @zackthoutt on Kaggle. There are 13 variables in total:
+
+- **Country:** The country that the wine is from 
+- **Designation:** The vineyard within the winery where the grapes that made the wine are from
+- **Points:** The number of points WineEnthusiast rated the wine on a scale of 1-100 
+- **Price:** The cost for a bottle of the wine
+- **Province:** The province or state that the wine is from
+- **Region_1:** The wine growing area in a province or state (ie Napa)
+- **Region_2:** Sometimes there are more specific regions specified within a wine growing area (ie Rutherford inside the Napa Valley), but this value can sometimes be blank
+- **Taster_name**
+- **Taster_twitter_handle**
+- **Title:** The title of the wine review, which often contains the vintage if you're interested in extracting that feature
+- **Variety:** The type of grapes used to make the wine (ie Pinot Noir)
+- **Winery:** The winery that made the wine
+
+## Project Goals and Deliverables
+
+- What are the factors that influence prices?
+- Create a recommendation system that that utilizes historical data from the reviwer to recommend wines that they are likely to enjoy
+- Extract insights from the reviews using NLP techniques
+  - Discover the abstract “topics” that occur in the user reviews 
+  - Classify the wine based on description of flavor
+- Create a model that predicts price and point and evaluate on a test using RMSE and accuracy respectively? 
+- Quantify the impact of wine description on price and point? 
+   - Hypothesis: user description is signficant in predicting points, and not significant when predicting price? 
+
+
+## Visualization and Insight: 
+
+```{r include=FALSE}
+library(data.table)
+library(DT)
+library(tidyverse)
+library(tidytext)
+library(qdap)
+library(ggthemes)
+library(wordcloud)
+library(RColorBrewer)
+library(plotly)
+library(gapminder)
+library(devtools)
+library(ggbiplot)
+library(factoextra)
+library(FactoMineR)
+library(gridExtra)
+```
+
+
+```{r read data, echo=FALSE}
+dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
+```
+
+```{r constants}
+country.name <- "country"
+description.name <- "description"
+designation.name <- "designation"
+points.name <- "points"
+price.name <- "price"
+province.name <- "province"
+region_1.name <- "region_1"
+region_2.name <- "region_2"
+taster.name <- "taster_name"
+twitter.name <- "taster_twitter_handle"
+title.name <- "title"
+variaty.name <- "variety"
+winery.name <- "winery"
+
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+
+single.var <- c(points.name, price.name, country.name)
+```
+
+```{r include=FALSE}
+# filter data set
+subdat <- dat %>%
+ select(variaty.name,country.name,points.name,price.name,province.name, winery.name,description.name)
+
+head(subdat)
+# count length of 
+subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
+```
+
+## Visualization and Insight: 
+Length of word distribution for 3 select countries
+
+```{r warning=TRUE}
+# Description distribution
+ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill = 'royalblue4') + 
+ theme_classic() +
+ ggtitle('Description word length Distribution') + 
+ xlab('Number of words used in Description') + 
+ ylab('Number of Observations') + 
+ theme(plot.title = element_text(hjust = 0.5)) + scale_fill_brewer(palette = "Blues")
+ ylim(0,25000) 
+ 
+```
+## Visualization and Insight: 
+Length of word distribution for 3 select countries
+```{r}
+# Description distribution
+subdat %>%
+  filter(country %in% c('Italy','Portugal','US')) %>%
+  ggplot(aes(x = descriptioncount)) + geom_histogram(bins=30, fill = 'royalblue4') + 
+  theme_classic() +
+  ggtitle('Description Word Length Distribution') + 
+  xlab('Number of words used in Description') + 
+  ylab('Number of Observations') +
+  theme(plot.title = element_text(hjust = 0.5)) + scale_fill_brewer(palette = "Blues")+ facet_grid(country ~.) + ylim(0,10000)
+ 
+```
+
+## Visualization and Insight: 
+Length of word distribution for 3 select countries
+
+
+```{r warning=FALSE}
+# Description distribution
+subdat %>%
+  filter(country %in% c('Italy','Portugal','US')) %>%
+  ggplot(aes(x = country, y= price)) + geom_boxplot(fill = 'royalblue4') +  
+  theme_classic() +
+  ggtitle('Price Boxplot of 3 countries') + 
+  xlab('Country') + 
+  ylab('Price ($)') +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(0 , 100)
+```
+
+## Visualization and Insight: 
+Length of word distribution for 3 select countries
+```{r warning=FALSE}
+# Description distribution
+subdat %>%
+  filter(country %in% c('Italy','Portugal','US')) %>%
+  ggplot(aes(x = country, y= points)) + geom_boxplot(fill = 'royalblue4') +  
+  theme_classic() +
+  ggtitle('Points Boxplot of 3 countries') + 
+  xlab('Country') + 
+  ylab('Points') +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(80, 100)
+
+```
+
+```{r}
+# top words 
+subdat[, qdap::freq_terms(text.var = subdat$description, stopwords = Top200Words)]
+
+# Sentiment Analysis
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(sentiment) %>%
+count() %>%
+ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
+ theme(plot.title = element_text(hjust = 0.5)) + xlab('Sentiment: Emotion')
+```
+
+
+
+## Worldcloud 
+
+```{r}
+# World cloud data 
+wordcloudData <- 
+ subdat%>%
+ unnest_tokens(output = word, input = description) %>%
+ anti_join(stop_words)%>%
+ group_by(word)%>%
+ summarize(freq = n())%>%
+ arrange(desc(freq))%>%
+ ungroup()%>%
+ data.frame()
+
+wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
+          max.words = 100, colors = brewer.pal(10,'Spectral'))
+```
+## Seperating Price in 3 categories 
+```{r}
+install.packages("plotly")
+install.packages("gapminder")
+library(ggplot2)
+library(plotly)
+library(gapminder)
+
+breaks <- fivenum(dat$price)
+lables <- c("very cheap","cheap","normal","expensive")
+price.level <- factor(cut(dat$price,breaks,lables))
+dat.new <- cbind(dat,price.level)
+
+
+ggplot(dat.new, aes(price.level, points, fill = price.level)) + 
+  geom_boxplot(notch = T,notchwidth = 0.5) + 
+  ggtitle("Points vs. Price Level") +
+  labs(x="Price Level",y="Points") +
+  geom_violin()+
+  scale_fill_brewer(palette = "Accent") +
+  labs(fill = "price.level")
+```
+
