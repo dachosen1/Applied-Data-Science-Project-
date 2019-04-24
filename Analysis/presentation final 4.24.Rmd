@@ -286,6 +286,36 @@ ggplot(aes(x= country, y=proportion,fill=sentiment, col = sentiment)) + geom_col
  theme(plot.title = element_text(hjust = 0.5))
 
 
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+ group_by(sentiment,points) %>%
+ count()%>%
+ group_by(sentiment, points) %>%
+ summarize(n = mean(n)) %>%
+ ungroup() %>%
+ ggplot(aes(x=points, y=n, fill=points)) +
+  geom_col() + facet_wrap(~sentiment) +
+  guides(fill=F) + coord_flip() +theme_classic() + ylab('Number of Observation') + 
+  xlab('Points') + ggtitle('Emotion') + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+## Sentiment Analysis
+
+```{r warning=FALSE}
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(country,sentiment) %>%
+summarize(n = n()) %>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country, y=proportion,fill=sentiment, col = sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ theme(plot.title = element_text(hjust = 0.5))
+
 
 subdat %>%
 unnest_tokens(output = word, input = description) %>%
