@@ -82,7 +82,7 @@ subdat %>%
 unnest_tokens(output = word, input = description) %>%
 inner_join(get_sentiments('bing')) %>%
 group_by(sentiment) %>%
-count() %>%
+count()%>%
 ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
  theme_classic() + guides(fill=F) + 
  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
@@ -169,18 +169,3 @@ wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
           max.words = 100, colors = brewer.pal(10,'Spectral'))
 
 ```
-
-
-
-```{r}
-?brewer.pal()
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-

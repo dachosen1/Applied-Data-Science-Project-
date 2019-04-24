@@ -18,9 +18,14 @@ library(quanteda)
 library(irlba)
 library(ggplot2)
 library(caret)
+library(tidytext)
+library(qdap)
 library(Hmisc)
 library(wordcloud)
+library(wordcloud2)
 library(DT)
+library(png)
+library(recommenderlab)
 ```
 
 ```{r read data+constant, echo=FALSE}
@@ -29,6 +34,25 @@ dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strin
 description.name="description"
 points.name="points"
 points.group.name="points.group"
+
+country.name <- "country"
+description.name <- "description"           
+designation.name <- "designation"           
+points.name <- "points"               
+price.name <- "price"                 
+province.name <- "province"              
+region_1.name <- "region_1"              
+region_2.name <- "region_2"             
+taster.name <- "taster_name"           
+twitter.name <- "taster_twitter_handle" 
+title.name <- "title"                 
+variaty.name <- "variety"              
+winery.name <- "winery"               
+
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+
+single.var <- c(points.name, price.name, country.name)
 ```
 
 ```{r function}
@@ -120,41 +144,129 @@ tf.idf <- function(x, idf) {
 }
 ```
 
+
+
+```{r include=FALSE}
+# filter data set
+subdat <- dat %>%
+ select(variaty.name,country.name,points.name,price.name,province.name, winery.name,description.name)
+
+
+# count length of 
+subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
+```
+
 ## Introduction
 
-We used **Wine Reviews** data which was scraped from *WineEntusiast* website on November 22nd, 2017 by @zackthoutt on Kaggle. There are 13 variables in total:
+We used Wine Reviews  data which was scraped from *WineEntusiast* website on November 22nd, 2017 by @zackthoutt on Kaggle. There are 13 variables in total:
 
-- 1.	Country: The country that the wine is from 
+- **Country:** The country that the wine is from 
+- **Designation:** The vineyard within the winery where the grapes that made the wine are from
+- **Points:** The number of points WineEnthusiast rated the wine on a scale of 1-100 
+- **Price:** The cost for a bottle of the wine
+- **Province:** The province or state that the wine is from
+- **Region_1:** The wine growing area in a province or state (ie Napa)
+- **Region_2:** Sometimes there are more specific regions specified within a wine growing area (ie Rutherford inside the Napa Valley), but this value can sometimes be blank
+- **Taster_name**
+- **Taster_twitter_handle**
+- **Title:** The title of the wine review, which often contains the vintage if you're interested in extracting that feature
+- **Variety:** The type of grapes used to make the wine (ie Pinot Noir)
+- **Winery:** The winery that made the wine
 
-- 2.	Description: wine reviews
+## Project Goals and Deliverables
 
-- 3.	Designation: The vineyard within the winery where the grapes that made the wine are from
+- What are the factors that influence prices?
+- Create a recommendation system that that utilizes historical data from the reviwer to recommend wines that they are likely to enjoy
+- Extract insights from the reviews using NLP techniques
+  - Discover the abstract “topics” that occur in the user reviews 
+  - Classify the wine based on description of flavor
+- Create a model that predicts price and point and evaluate on a test using RMSE and accuracy respectively? 
+- Quantify the impact of wine description on price and point? 
+   - Hypothesis: user description is signficant in predicting points, and not significant when predicting price?
 
-- 4.	Points: The number of points WineEnthusiast rated the wine on a scale of 1-100 (though they say they only post reviews for wines that score >=80)
+```{r include=FALSE}
+breaks <- fivenum(dat$price)
+lables <- c("very cheap","cheap","normal","expensive")
+price.level <- factor(cut(dat$price,breaks,lables))
+dat.new <- cbind(dat,price.level)
+```
 
-- 5.	Price: The cost for a bottle of the wine
+## Exploratory Data Analysis
 
-- 6.	Province: The province or state that the wine is from
+We divided the prices into quantiles and provided those quantiles with the respective labels `.
 
-- 7.	Region_1: The wine growing area in a province or state (ie Napa)
+The con for this approach is that the dataset has a wide distribution and may not accurately reflect the best cluster for, however each quantile has an equal amount of numeric values. 
 
-- 8.	Region_2: Sometimes there are more specific regions specified within a wine growing area (ie Rutherford inside the Napa Valley), but this value can sometimes be blank
+To improve this analysis we are considering a cluster analysis to evaluate the categories. 
 
-- 9.	Taster_name
+```{r}
+ggplot(dat.new[!is.na(price.level)], aes(price.level, points, fill = price.level)) + 
+  geom_boxplot(notch = T,notchwidth = 0.5) + 
+  ggtitle("Points vs. Price Level") +
+  labs(x="Price Level",y="Points") +
+  geom_violin()+
+  scale_fill_brewer(palette = "Accent") +
+  labs(fill = "price.level")
 
-- 10.	Taster_twitter_handle
-
-- 11.	Title: The title of the wine review, which often contains the vintage if you're interested in -extracting that feature
-
-- 12.	Variety: The type of grapes used to make the wine (ie Pinot Noir)
-
-- 13.	Winery: The winery that made the wine
+table(breaks)
+```
 
 
-## Explore Data Analysis
+## Visualization and Insight: 
+Length of word distribution for 3 select countries
+```{r warning=FALSE}
+# Description distribution
+subdat %>%
+  filter(country %in% c('Italy','Portugal','US')) %>%
+  ggplot(aes(x = country, y= points)) + geom_boxplot(fill = 'royalblue4') +  
+  theme_classic() +
+  ggtitle('Points Boxplot of 3 countries') + 
+  xlab('Country') + 
+  ylab('Points') +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(80, 100)
+```
 
 
 ## Text Analytics
+
+
+```{r}
+# Sentiment Analysis
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(sentiment) %>%
+count() %>%
+ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
+ theme(plot.title = element_text(hjust = 0.5)) + xlab('Sentiment: Emotion') + 
+  geom_text(aes(label = n),vjust = -.5, nudge_y = 1.4)
+```
+
+## Sentimenent Analysis by country
+
+```{r warning=FALSE}
+# Sentiment Analysis by country 
+
+write.dat.csv <- subdat %>%
+  unnest_tokens(output = word, input = description) %>%
+  inner_join(get_sentiments('bing')) %>%
+  dplyr::group_by(country,sentiment) %>%
+  summarise(n = n())%>%
+  mutate(proportion = n/sum(n))
+
+
+ggplot(data = write.dat.csv, aes(x= country, y=proportion,fill=sentiment)) + geom_col() + 
+  theme_classic() + guides(fill=F) + coord_flip() + 
+  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+
+## Text analytics 
 
 - Step 1: How many words in every review?
 
@@ -199,11 +311,10 @@ text.tokens.dfm <- dfm(text.tokens, tolower = FALSE)
 
 - Step 3: WordCloud
 
-```{r wordcloud,fig.hight=3,fig.width=3}
+```{r wordcloud}
 wordcloudData <- data.table(word=colnames(text.tokens.dfm),freq=colSums(text.tokens.dfm))
 setorderv(wordcloudData,cols="freq",order=-1)
-wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
-          max.words = 100, colors = brewer.pal(10,'Spectral'))
+wordcloud2(data=wordcloudData,size=1,minSize=0.1)
 ```
 
 ## Text Analysis
@@ -283,3 +394,78 @@ ggplot(data = test,aes(x= points.diff,y=..density..)) +
   theme(plot.title = element_text(hjust = 0.5)) 
 ```
 
+## Building a recommendation system 
+
+Since, users tend to vary in their pattern of evaluation (positivity bias, negativity bias, consistent ratings), it
+is a good practice to standardize data (center, Z-score)
+
+```{r echo = TRUE}
+dat <- dat %>%
+ select(taster_name, variety,points)
+
+dat <- dat[complete.cases(dat)]
+
+# convert into a s4 class 
+data_matrix <- as(dat, 'realRatingMatrix')
+image(data_matrix[1:19,1:50])
+
+# z score normalization 
+data_matrix_znorm <-normalize(x = data_matrix, method='Z-score')
+image(data_matrix_znorm[1:19,1:50])
+
+# center normalization 
+data_matrix_cnorm <-normalize(x = data_matrix, method='center')
+image(data_matrix_cnorm[1:19,1:50])
+```
+
+## Building a recommendation system: Generating Predictions, normal data set 
+Generating top 2 movie recommendations uding the popular method on the unmodified dataset. 
+
+```{r}
+
+recommenderRegistry$get_entry("POPULAR", type ="realRatingMatrix")
+# recommendation for normal data 
+recom <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
+pred <- predict(recom,data_matrix, n = 2)
+
+recommendation.popular1 <- as.data.frame(mapply(c, getList(pred), 
+                     getRatings(pred), 
+                     as.list(rowMeans(data_matrix, na.rm = TRUE))))
+
+datatable(recommendation.popular1[1:2,])
+
+```
+
+## Building a recommendation system: Generating Predictions, normalized data set
+Generating top 2 movie recommendations uding the popular method on the normalize dataset. 
+
+```{r}
+# recommendation for normalized data by z score
+recom2 <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
+pred2 <- predict(recom,data_matrix_znorm, n = 2)
+recommendation.popular2 <- as.data.frame(mapply(c, getList(pred2), 
+                     getRatings(pred2), 
+                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
+
+datatable(recommendation.popular2[1:2,])
+```
+
+## Building a recommendation system: Generating Predictions, z score data set data set
+Generating top 2 movie recommendations uding the popular method on the dataset scaled using the Z score. 
+```{r}
+# recommendation for normalized data by center
+recom3 <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
+pred3 <- predict(recom,data_matrix_znorm, n = 2)
+recommendation.popular3 <- as.data.frame(mapply(c, getList(pred3), 
+                     getRatings(pred3), 
+                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
+
+datatable(recommendation.popular3[1:2,])
+```
+
+## Conclusion: 
+
+Al three methods produces slightly different recommendations, next step is to evalate the results on a test set. 
+
+
+## Thank You 

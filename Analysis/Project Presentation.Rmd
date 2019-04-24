@@ -64,6 +64,7 @@ library(tm)
 library(quanteda)
 library(irlba)
 library(caret)
+library(recommenderlab)
 ```
 
 
@@ -389,3 +390,4 @@ ggplot(dat.new, aes(price.level, points, fill = price.level)) +
   labs(fill = "price.level")
 ```
 
+## Receommendation engine 
