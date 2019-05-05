@@ -75,14 +75,14 @@ ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill 
 ```{r}
 
 # top words 
-subdat[, qdap::freq_terms(text.var = subdat$description, stopwords = Top200Words)]
+subdat[, freq_terms(text.var = subdat$description, stopwords = Top200Words)]
 
 # Sentiment Analysis
 subdat %>%
 unnest_tokens(output = word, input = description) %>%
 inner_join(get_sentiments('bing')) %>%
 group_by(sentiment) %>%
-count()%>%
+count() %>%
 ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
  theme_classic() + guides(fill=F) + 
  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
@@ -101,10 +101,7 @@ ggplot(aes(x= country, y=proportion,fill=sentiment)) + geom_col() +
  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
  theme(plot.title = element_text(hjust = 0.5)) 
 
-
-
 ```
-
 ```{r}
 # Sentiment Analysis
 subdat %>%
@@ -112,10 +109,11 @@ unnest_tokens(output = word, input = description) %>%
 inner_join(get_sentiments('nrc')) %>%
 group_by(sentiment) %>%
 count() %>%
-ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() + 
+ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
  theme_classic() + guides(fill=F) + 
- ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
- theme(plot.title = element_text(hjust = 0.5)) + xlab('Sentiment: Emotion')
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ #ylim(0,400000) + 
+ theme(plot.title = element_text(hjust = 0.5)) 
 
 
 # Sentiment Analysis ny country 
@@ -169,3 +167,18 @@ wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
           max.words = 100, colors = brewer.pal(10,'Spectral'))
 
 ```
+
+
+
+```{r}
+?brewer.pal()
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+

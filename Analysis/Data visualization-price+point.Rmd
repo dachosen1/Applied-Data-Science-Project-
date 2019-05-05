@@ -19,7 +19,6 @@ library(DT)
 dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
 dat <- dat[,-1]
 
-getwd()
 ```
 
 ```{r functions}
