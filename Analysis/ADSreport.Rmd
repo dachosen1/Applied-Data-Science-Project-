@@ -128,7 +128,7 @@ We then examined the unique values for each varible. **Designation, winery, titl
 
 **Price** of the wine ranges from 4 to 3300 with some extreme values. We then visualized **price** in the report enginee and recommended a way to define price range (<10, 10~30, 30~50, 50~200, 200~500, >500)
 
-Variable **points** ranges from 80 to 100. Its distribution was close to a bell shape.
+Variable **points** ranges from 80 to 100. Its distribution was close to a bell shape. <br>
 
 **Description, taster_name** and **taster_twitter_handle** provides information about the taster and their reviews on the wine. We examined these variables later based on the needs for text anlysis and recommendation systems building.
 
