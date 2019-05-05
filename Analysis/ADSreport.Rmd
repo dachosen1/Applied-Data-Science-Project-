@@ -1,0 +1,172 @@
+---
+title: "Analysis on Wine Reviews"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library, include=FALSE}
+library(prettydoc)
+library(data.table)
+library(DT)
+library(tidyverse)
+library(tm)
+library(stringr)
+library(quanteda)
+library(irlba)
+library(ggplot2)
+library(caret)
+library(recommenderlab)
+library(Hmisc)
+library(wordcloud)
+library(wordcloud2)
+```
+
+```{r read data, echo=FALSE}
+dat <- fread(input = "wines.csv",verbose = FALSE,na.strings=c(""))
+dat=dat[,-1]
+```
+
+
+```{r functions}
+percentage.table <- function(x, digits = 1){
+  tab <- table(x)
+  percentage.tab <- 100*tab/(sum(tab))
+  rounded.tab <- round(x = percentage.tab, digits = digits)
+  return(rounded.tab)
+}
+round.numerics <- function(x, digits){
+  if(is.numeric(x)){
+    x <- round(x = x, digits = digits)
+  }
+  return(x)
+}
+miss.value <- function(x){
+  miss.rate <- round(100*mean(is.na(x)),2)
+  return(miss.rate)
+}
+get.unique = function(x){
+  ux=length(unique(x))
+  return(ux)
+}
+```
+
+
+```{r constants, include=F}
+country.name <- "country"
+description.name <- "description"           
+designation.name <- "designation"           
+points.name <- "points"               
+price.name <- "price"                 
+province.name <- "province"              
+region_1.name <- "region_1"              
+region_2.name <- "region_2"             
+taster.name <- "taster_name"           
+twitter.name <- "taster_twitter_handle" 
+title.name <- "title"                 
+variaty.name <- "variety"              
+winery.name <- "winery"               
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+single.var <- c(points.name, price.name, country.name)
+```
+
+# Introduction
+
+<p>One of the most important research questions in the wine related area is the ranking, rating and judging of wine[1]. In the past, the research on these problems manily utilized samll dataset[2]. However, with data science techniques, we are able to investigate the problem using large amount of data. </p>
+
+<p>Majority of the studies focus on analyzing physicochemical laboratory wine data, while little research has been conducted on the content of wine reviews. Mining useful information from wine reviews and tasters preferences can provide new insights from a consumer perspective. Therefore, it is meaningful to untilize these data and generate better wine recommendations.</p>
+
+
+# Source of Data
+<body>
+We used <b> <a href = "https://www.kaggle.com/zynicide/wine-reviews" > Wine Reviews</a></b> data which was scraped from <i>WineEntusiast</i> website on November 22nd, 2017 by @zackthoutt on Kaggle. The orginial data also had an index variable which we ignored here since it has no impact on our project. There are 13 variables in total:
+
+<ul>
+<li><b>Country</b>: The country that the wine is from; </li>
+
+<li><b>Description</b>: wine reviews; </li>
+
+<li><b>Designation</b>: The vineyard within the winery where the grapes that made the wine are from;</li>
+
+<li><b>Points</b>: The number of points WineEnthusiast rated the wine on a scale of 1-100 (though they say they only post reviews for wines that score >=80);</li>
+
+<li><b>Price</b>: The cost for a bottle of the wine; </li>
+
+<li><b>Province</b>: The province or state that the wine is from;</li>
+
+<li><b>Region_1</b>: The wine growing area in a province or state (ie Napa) ;</li>
+
+<li><b>Region_2</b>: Sometimes there are more specific regions specified within a wine growing area (ie Rutherford inside the Napa Valley), but this value can sometimes be blank ;</li>
+
+<li><b>Taster_name</b>: Name of the taster(reviewer);</li>
+
+<li><b>Taster_twitter_handle</b>;</li>
+
+<li><b>Title</b>: The title of the wine review, which often contains the vintage if you're interested in extracting that feature ;</li>
+
+<li><b>Variety</b>: The type of grapes used to make the wine (ie Pinot Noir) ;</li>
+
+<li><b>Winery</b>: The winery that made the wine.</li>
+
+</ul>
+</body>
+
+```{r,include=F}
+datatable(dat[1:5,])
+```
+
+# Examination of the Data
+
+<p>We first checked the missing vlaues in the data and visualize the percentage of that for each varible. **Country, province, region_1 and region_2** are varibales giving geographic information about the wine, since the majority of **region_2** and 16.4% of **region_1** are missing, we choose to focus on **country** unless more detailed geographic information are needed.</p>
+
+We then examined the unique values for each varible. **Designation, winery, title** have many unique values, hence we decided to treat them as random effects but not predictors when modeling.<br>
+
+**Price** of the wine ranges from 4 to 3300 with some extreme values. We then visualized **price** in the report enginee and recommended a way to define price range (<10, 10~30, 30~50, 50~200, 200~500, >500)
+
+Variable **points** ranges from 80 to 100. Its distribution was close to a bell shape.
+
+**Description, taster_name** and **taster_twitter_handle** provides information about the taster and their reviews on the wine. We examined these variables later based on the needs for text anlysis and recommendation systems building.
+
+```{r percentage missing}
+tab <- dat[,lapply(X=.SD,FUN="miss.value"),.SD=names(dat)[-1]]
+tab2 <- data.table(var=names(dat[,-1]),miss=as.numeric(tab))
+# create a plot of all the missing rate 
+barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1, main="Percentage of Missing Value",ylab="Percentage", ylim=c(0,80),col=rainbow(13),border="white")
+text(x = -0.5 + 1.02*1:tab2[, .N], y = -15, labels = tab2$var,srt = 45)
+space_val=0
+text(x=-0.4+1:length(tab)*(1+space_val),y=tab,labels=sprintf("%.1f%%",tab),pos=3)
+
+#number of unique values for each variable
+unitab=dat[,lapply(.SD,FUN="get.unique")]
+datatable(unitab)
+#range of price
+summary(dat$price)
+hist(dat[,price],xlab="price", col= "#85C1E9", border="white", main="Histogram of price")
+#points plot
+hist(dat$points,xlab="points", col= "#85C1E9", border="white", main="Histogram of points")
+```
+
+
+# Investigation:
+#1. Sentiment Analysis 
+#2. Text Analysis
+#3. Recommendation System
+
+# The Results
+# Interpretation
+# Assummptions
+# Limitations and Uncertainties
+# Areas of Future Investigation
+
+# References
+[1]Bernard Chen, Valentin V., James P., and Travis A. Wineinformatics: A Quantitative Analysis of Wine Reviewers. <i> Fermentation </i>. 2018 <br>
+[2]Quandt, R.E. A note on a test for the sum of ranksums. <i>J. Wine Econ</i>. 2007, 2, 98-102. <br>
+
+
+
+
