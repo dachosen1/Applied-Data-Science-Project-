@@ -1,0 +1,86 @@
+"","country","sentiment","n"
+"1",NA,"negative",49
+"2",NA,"positive",201
+"3","Argentina","negative",4938
+"4","Argentina","positive",8288
+"5","Armenia","positive",4
+"6","Australia","negative",1775
+"7","Australia","positive",6567
+"8","Austria","negative",2631
+"9","Austria","positive",12780
+"10","Bosnia and Herzegovina","positive",9
+"11","Brazil","negative",93
+"12","Brazil","positive",86
+"13","Bulgaria","negative",99
+"14","Bulgaria","positive",359
+"15","Canada","negative",228
+"16","Canada","positive",806
+"17","Chile","negative",5489
+"18","Chile","positive",10547
+"19","China","negative",1
+"20","China","positive",1
+"21","Croatia","negative",58
+"22","Croatia","positive",250
+"23","Cyprus","negative",7
+"24","Cyprus","positive",62
+"25","Czech Republic","negative",14
+"26","Czech Republic","positive",27
+"27","Egypt","positive",5
+"28","England","negative",82
+"29","England","positive",483
+"30","France","negative",13268
+"31","France","positive",74825
+"32","Georgia","negative",78
+"33","Georgia","positive",245
+"34","Germany","negative",2414
+"35","Germany","positive",8322
+"36","Greece","negative",329
+"37","Greece","positive",1942
+"38","Hungary","negative",107
+"39","Hungary","positive",530
+"40","India","negative",10
+"41","India","positive",28
+"42","Israel","negative",363
+"43","Israel","positive",1592
+"44","Italy","negative",16383
+"45","Italy","positive",60009
+"46","Lebanon","negative",36
+"47","Lebanon","positive",107
+"48","Luxembourg","negative",10
+"49","Luxembourg","positive",17
+"50","Macedonia","negative",6
+"51","Macedonia","positive",37
+"52","Mexico","negative",83
+"53","Mexico","positive",163
+"54","Moldova","negative",35
+"55","Moldova","positive",159
+"56","Morocco","negative",16
+"57","Morocco","positive",86
+"58","New Zealand","negative",1055
+"59","New Zealand","positive",3683
+"60","Peru","negative",28
+"61","Peru","positive",17
+"62","Portugal","negative",3472
+"63","Portugal","positive",19093
+"64","Romania","negative",70
+"65","Romania","positive",378
+"66","Serbia","negative",9
+"67","Serbia","positive",24
+"68","Slovakia","negative",1
+"69","Slovakia","positive",4
+"70","Slovenia","negative",64
+"71","Slovenia","positive",237
+"72","South Africa","negative",1042
+"73","South Africa","positive",6089
+"74","Spain","negative",8371
+"75","Spain","positive",16770
+"76","Switzerland","negative",3
+"77","Switzerland","positive",12
+"78","Turkey","negative",52
+"79","Turkey","positive",282
+"80","Ukraine","negative",12
+"81","Ukraine","positive",37
+"82","Uruguay","negative",186
+"83","Uruguay","positive",201
+"84","US","negative",45100
+"85","US","positive",163583
