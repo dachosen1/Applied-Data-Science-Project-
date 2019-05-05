@@ -193,23 +193,7 @@ dat.new <- cbind(dat,price.level)
 
 ## Exploratory Data Analysis
 
-We divided the prices into quantiles and provided those quantiles with the respective labels `.
-
-The con for this approach is that the dataset has a wide distribution and may not accurately reflect the best cluster for, however each quantile has an equal amount of numeric values. 
-
-To improve this analysis we are considering a cluster analysis to evaluate the categories. 
-
-```{r}
-ggplot(dat.new[!is.na(price.level)], aes(price.level, points, fill = price.level)) + 
-  geom_boxplot(notch = T,notchwidth = 0.5) + 
-  ggtitle("Points vs. Price Level") +
-  labs(x="Price Level",y="Points") +
-  geom_violin()+
-  scale_fill_brewer(palette = "Accent") +
-  labs(fill = "price.level")
-
-table(breaks)
-```
+We mainly explored varibles: country, winery, variety, designation, price, points through data visualization. See flexdashoboard for details.
 
 
 ## Visualization and Insight: 
@@ -227,44 +211,127 @@ subdat %>%
 ```
 
 
-## Text Analytics
+## Sentiment Analysis
+
+Sentiment of descriptioin
+
+  > The distribution of words length roughly shows normal distribution
 
 
-```{r}
+```{r warning=FALSE}
 # Sentiment Analysis
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('bing')) %>%
+group_by(sentiment) %>%
+count() %>%
+ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + 
+  scale_fill_brewer(palette = "Accent")+
+  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+  ylim(0,400000) + theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+## Sentiment Analysis
+
+Closer look at description sentiment of different countries.
+Sorted country from most recored data to least recorded data and show first 15 countries.
+
+```{r warning=FALSE}
+# Sentiment Analysis ny country 
+data1 <- subdat[,length(get(description.name)),by=country.name]
+setorderv(data1,cols = "V1",-1)
+order1 <- data1$country[1:15]
+
+subdat[get(country.name)%in%order1,] %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('bing')) %>%
+group_by(country,sentiment) %>%
+summarize(n = n())%>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country , y=proportion,fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+  scale_fill_brewer(palette = "Accent")+
+ ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
+ theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+## Sentiment Analysis
+
+Interesting thing with review emotion.
+
+```{r foundation to text analysis,warning=FALSE}
+# Emotion 
 subdat %>%
 unnest_tokens(output = word, input = description) %>%
 inner_join(get_sentiments('nrc')) %>%
 group_by(sentiment) %>%
 count() %>%
 ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() + 
- theme_classic() + guides(fill=F) + 
+ theme_grey() + guides(fill=F) + 
  ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
  theme(plot.title = element_text(hjust = 0.5)) + xlab('Sentiment: Emotion') + 
   geom_text(aes(label = n),vjust = -.5, nudge_y = 1.4)
-```
-
-## Sentimenent Analysis by country
-
-```{r warning=FALSE}
-# Sentiment Analysis by country 
-
-write.dat.csv <- subdat %>%
-  unnest_tokens(output = word, input = description) %>%
-  inner_join(get_sentiments('bing')) %>%
-  dplyr::group_by(country,sentiment) %>%
-  summarise(n = n())%>%
-  mutate(proportion = n/sum(n))
 
 
-ggplot(data = write.dat.csv, aes(x= country, y=proportion,fill=sentiment)) + geom_col() + 
-  theme_classic() + guides(fill=F) + coord_flip() + 
-  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(country,sentiment) %>%
+summarize(n = n()) %>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country, y=proportion,fill=sentiment, col = sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ theme(plot.title = element_text(hjust = 0.5))
+
+
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+ group_by(sentiment,points) %>%
+ count()%>%
+ group_by(sentiment, points) %>%
+ summarize(n = mean(n)) %>%
+ ungroup() %>%
+ ggplot(aes(x=points, y=n, fill=points)) +
+  geom_col() + facet_wrap(~sentiment) +
+  guides(fill=F) + coord_flip() +theme_classic() + ylab('Number of Observation') + 
+  xlab('Points') + ggtitle('Emotion') + 
   theme(plot.title = element_text(hjust = 0.5))
 
-
 ```
 
+## Sentiment Analysis
+
+```{r warning=FALSE}
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(country,sentiment) %>%
+summarize(n = n()) %>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country, y=proportion,fill=sentiment, col = sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ theme(plot.title = element_text(hjust = 0.5))
+
+
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+ group_by(sentiment,points) %>%
+ count()%>%
+ group_by(sentiment, points) %>%
+ summarize(n = mean(n)) %>%
+ ungroup() %>%
+ ggplot(aes(x=points, y=n, fill=points)) +
+  geom_col() + facet_wrap(~sentiment) +
+  guides(fill=F) + coord_flip() +theme_classic() + ylab('Number of Observation') + 
+  xlab('Points') + ggtitle('Emotion') + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
 
 ## Text analytics 
 
