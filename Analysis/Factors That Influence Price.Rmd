@@ -1,0 +1,194 @@
+---
+title: "Factors that influce price"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library, include=FALSE}
+library(data.table)
+library(DT)
+```
+
+```{r read data, echo=FALSE}
+dat <- fread(input = '../Data/wine.clean.csv',verbose = FALSE,na.strings=c(""))
+dat <- dat[,-1]
+
+```
+
+```{r constants}
+country.name <- "country"
+description.name <- "description"           
+designation.name <- "designation"           
+points.name <- "points"               
+price.name <- "price"                 
+province.name <- "province"              
+region_1.name <- "region_1"              
+region_2.name <- "region_2"             
+taster.name <- "taster_name"           
+twitter.name <- "taster_twitter_handle" 
+title.name <- "title"                 
+variaty.name <- "variety"              
+winery.name <- "winery"               
+
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+
+single.var <- c(points.name, price.name, country.name)
+
+dat$description <- NULL
+
+price.category.range <- c(4,10,15,20,30,50,100,200)
+price.category.name <- c('Value','Value Premium','Premium','Super Premium','Ultra Premium',
+                         'Luxury','Super Luxery','Icon')
+```
+
+```{r}
+round.numerics <- function(x, digits){
+  if(is.numeric(x)){
+    x <- round(x = x, digits = digits)
+  }
+  return(x)
+}
+```
+
+# Test the correlation between the variables
+```{r}
+library(corrplot)
+data.numeric <- dat
+
+data.numeric$country <- as.numeric(as.factor(data.numeric$country))
+data.numeric$designation <- as.numeric(as.factor(data.numeric$designation))
+data.numeric$province <- as.numeric(as.factor(data.numeric$province))
+data.numeric$region_1 <- as.numeric(as.factor(data.numeric$region_1))
+data.numeric$region_2 <- as.numeric(as.factor(data.numeric$region_2))
+data.numeric$taster_name <- as.numeric(as.factor(data.numeric$taster_name))
+data.numeric$title <- as.numeric(as.factor(data.numeric$title))
+data.numeric$variety <- as.numeric(as.factor(data.numeric$variety))
+data.numeric$winery <- as.numeric(as.factor(data.numeric$winery))
+
+
+correlation.value <- cor(data.numeric)
+
+corrplot(correlation.value, method = 'square',type = 'lower',diag = F)
+```
+
+
+
+
+
+
+```{r}
+library(broom); 
+library(coefplot)
+# drop correlated values 
+data.numeric2 <- data.numeric
+data.numeric2$title <- NULL
+data.numeric2$region_2 <- NULL
+
+
+# Fit linear Model 
+lm.model <- lm(price ~., data = data.numeric2)
+summary(lm.model)
+
+# plot residuals 
+layout(matrix(c(1,2,3,4),2,2))
+plot(lm.model)
+
+# check assumptions 
+gvlma(lm.model)
+
+#save model 
+lm.model.result <- tidy(lm.model)
+
+coefplot(lm.model)
+```
+
+
+```{r }
+dat$price <- cut2(x = dat$price,cuts = price.category.range, price.category.name)
+levels(dat$price) <- price.category.name
+
+price.count <- dat[,.(count = .N), by = price.name]
+
+ggplot(data = price.count, aes(x = price, y = count)) + geom_bar(stat = 'identity', fill = 'lightblue') + theme_classic()
+
+```
+
+
+
+
+```{r}
+
+length(unique(new.dat$designation))
+length(unique(new.dat$province))
+length(unique(new.dat$variety))
+
+```
+
+Analyzing Province impact
+
+```{r}
+# Analyzing Province 
+dat.notable.provice.count <- dat[, .N, by = province.name][N > 500]
+dat.notable.provice <- dat[get(province.name) %in% dat.notable.provice.count$province]
+
+multinom.model <- nnet::multinom(formula = price ~ province, data = dat.notable.provice)
+
+z <- summary(multinom.model)$coefficients/summary(multinom.model)$standard.errors
+
+# 2-tailed z test
+p <- (1 - pnorm(abs(z), 0, 1)) * 2
+p
+
+exp(coef(multinom.model))
+```
+
+```{r include=FALSE}
+library(foreign)
+library(MASS)
+library(reshape2)
+library(Hmisc)
+```
+
+```{r}
+# olr model for provice 
+olr.model.province <- polr(price ~ points + province, data = dat.notable.provice, Hess = TRUE)
+
+# store table
+ctable.province <- coef(summary(olr.model.province))
+
+# calculate and store p values
+p.province <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+
+# combined table
+ctable.province <- cbind(ctable, "p value" = p)
+```
+
+
+# Analyzing designation
+
+```{r}
+dat.designation.count <- dat[,.N, by = designation.name][order(-N)][N >50]
+dat.designation <- dat[get(designation.name) %in% dat.designation.count$designation]
+
+
+# olr model for provice 
+olr.model.designation <- polr(price ~ designation, data = dat.notable.provice, Hess = TRUE)
+
+# store table
+ctable.designation <- coef(summary(olr.model.designation))
+
+# calculate and store p values
+p.designation <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+
+# combined table
+ctable.designation <- cbind(ctable, "p value" = p)
+
+```
+
+
+

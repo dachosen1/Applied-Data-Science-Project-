@@ -1,0 +1,365 @@
+---
+title: "All About Wine"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(leaflet)
+library(data.table)
+library(knitr)
+library(htmltools)
+library(dplyr)
+library(plotly)
+library(treemap)
+library(DT)
+library(wordcloud)
+library(tidytext)
+library(stringr)
+library(RColorBrewer)
+library(ggthemes)
+```
+
+
+```{r}
+dat <- fread(input = "../Data/winemag-data-130k-v2.csv", verbose = FALSE,na.strings=c(""))
+```
+
+
+
+```{r constant,eval=T}
+country.name <- "country"
+description.name <- "description"           
+designation.name <- "designation"           
+points.name <- "points"               
+price.name <- "price"                 
+province.name <- "province"              
+region_1.name <- "region_1"              
+region_2.name <- "region_2"             
+taster.name <- "taster_name"           
+twitter.name <- "taster_twitter_handle" 
+title.name <- "title"                 
+variety.name <- "variety"              
+winery.name <- "winery"    
+
+price.range.name <- "price range"
+
+
+dat[, eval(price.range.name) := ( ifelse( get(price.name)<10, "<10", 
+                                          ifelse( get(price.name)>=10& get(price.name)<30, "10~30",
+                                                  ifelse(get(price.name)>=30& get(price.name)<50, "30~50",  ifelse(get(price.name)>=50& get(price.name)<200, "50~200", 
+                                                                                                                   ifelse( get(price.name)>=200& get(price.name)<500, "200~500", ">500")) ))))]
+
+unique.country <- dat[, unique(get(country.name))]
+unique.price.range <- dat[, unique(get(price.range.name))]
+unique.variety <- dat[, unique(get(variety.name))]
+
+dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
+dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+```
+
+
+
+```{r functions}
+percentage.table <- function(x, digits = 1){
+  tab <- table(x)
+  percentage.tab <- 100*tab/(sum(tab))
+  rounded.tab <- round(x = percentage.tab, digits = digits)
+  return(rounded.tab)
+}
+round.numerics <- function(x, digits){
+  if(is.numeric(x)){
+    x <- round(x = x, digits = digits)
+  }
+  return(x)
+}
+miss.value <- function(x){
+  miss.rate <- round(100*mean(is.na(x)),2)
+  return(miss.rate)
+}
+```
+
+
+Introduction {data-orientation=columns}
+====================================
+<body>
+<h1 align="center"> All About Wine</h1>
+<h3 align="center"> Team: Exhibit R</h3>
+<p align="center">
+Min Sun <br>
+Yaxin Deng<br>
+Xiaomeng Huang <br>
+Anderson Nelson<Br>
+</p>
+
+<img src="wine.jpg" align="center">
+
+</body>
+
+
+
+
+Overall {data-navmenu="Data Exploration"}
+==================================================
+<body>
+<h4>We used <i><b>Wine Reviews</b></i> data which was scraped from <i>WineEntusiast</i> website on November 22nd, 2017 by @zackthoutt on Kaggle. There are 13 variables in total:</h4>
+
+<ul>
+<li><b>Country</b>: The country that the wine is from; </li>
+
+<li><b>Description</b>: wine reviews; </li>
+
+<li><b>Designation</b>: The vineyard within the winery where the grapes that made the wine are from;</li>
+
+<li><b>Point</b>s: The number of points WineEnthusiast rated the wine on a scale of 1-100 (though they say they only post reviews for wines that score >=80);</li>
+
+<li><b>Price</b>: The cost for a bottle of the wine; </li>
+
+<li><b>Province</b>: The province or state that the wine is from;</li>
+
+<li><b>Region_1</b>: The wine growing area in a province or state (ie Napa) ;</li>
+
+<li><b>Region_2</b>: Sometimes there are more specific regions specified within a wine growing area (ie Rutherford inside the Napa Valley), but this value can sometimes be blank ;</li>
+
+<li><b>Taster_name</b>: Name of the taster(reviewer);</li>
+
+<li><b>Taster_twitter_handle</b>;</li>
+
+<li><b>Title</b>: The title of the wine review, which often contains the vintage if you're interested in extracting that feature ;</li>
+
+<li><b>Variety</b>: The type of grapes used to make the wine (ie Pinot Noir) ;</li>
+
+<li><b>Winery</b>: The winery that made the wine.</li>
+
+</ul>
+
+</body>
+
+Row {data_height=300}{.tabset .tabset-fade}
+-----------------------------------------------
+### Data table {data-padding=12}
+```{r}
+datatable(data=dat[1:10,-1])
+```
+
+### Missing Values
+
+```{r}
+renderPlot({
+  tab <- dat[,lapply(X=.SD,FUN="miss.value"),.SD=names(dat)[-1]]
+  tab2 <- data.table(var=names(dat[,-1]),miss=as.numeric(tab))
+# create a plot of all the missing rate 
+barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1,
+          main="Percentage of Missing Value",ylab="Percentage", ylim=c(0,80),col=rainbow(13),border="white")
+  text(x = -0.5 + 1.02*1:tab2[, .N], y = -15, labels = tab2$var,srt = 45, cex = 1, pos = 2)
+  space_val=0
+  text(x=-0.4+1:length(tab)*(1+space_val),y=tab,labels=sprintf("%.1f%%",tab),pos=3)
+})
+```
+
+
+
+Price {data-navmenu="Data Exploration"}
+============================================
+There are some extreme values in the data, the wine price counld range from 4 to 3300. Therefore, we create a price range variable in case we need that for anlaysis later on.
+
+Row
+-----------------------------------
+### Overall Price
+```{r}
+renderPlot({
+  hist(dat[,price], xlab="price", col= "#9AC0CD",border="white", main="Overall Price ")
+})
+
+```
+
+### Price under 500
+```{r}
+renderPlot({
+  hist(dat[price<500,price], xlab="price", col= "#9AC0CD",border="white", main="Price under 500 ")
+})
+```
+
+Row
+-----------------------------------
+ 
+### Price under 200
+```{r}
+renderPlot({
+  hist(dat[price<200,price], xlab="price", col= "#9AC0CD",border="white", main="Price under 200 ")
+})
+```
+
+### Price under 50
+
+```{r}
+renderPlot({
+  hist(dat[price<50,price], xlab="price", col= "#9AC0CD",border="white", main="Price under 50 ")
+})
+```
+
+
+
+Winery & Designation {data-navmenu="Data Exploration"}
+===================================
+
+There are 129971 records with 16757 unique wineries and 37980 unique designations. The following graph shows that most of records with variety <i>Pinot Noir</i> and price higher than 500 are from <i>Domiane du Comte Liger-Belair</i>. Choose different variety and price range to explore.
+
+
+
+```{r,eval=T}
+inputPanel(
+  selectInput(inputId = "variety",label="Select Variety",choices = c("All",as.character(unique.variety)),selected = "Pinot Noir"),
+  selectInput(inputId = "price.range",label="Select Price Range",choices = c("All",as.character(unique.price.range)), selected = ">500"),
+  selectInput(inputId = "var",label="Show Top 15", choices = c(winery.name,designation.name),selected = winery.name)
+)
+```
+
+###{data-padding=5}
+```{r}
+renderPlot({
+    if(input$variety == "All"){
+    treedat=dat[ get(price.range.name) %in% input$price.range,.N,keyby = eval(input$var)]
+  } else{ 
+    if(input$price.range == "All"){
+      treedat=dat[get(variety.name)%in% input$variety ,.N,keyby = eval(input$var)] 
+    }else{
+        treedat=dat[get(variety.name)%in% input$variety & get(price.range.name) %in% input$price.range, .N, keyby = eval(input$var)]
+    }
+    }
+  setorderv(treedat,col="N",-1)
+  if(nrow(treedat)<15){
+    treemap.dat=treedat
+  } else{
+    treemap.dat=treedat[1:15,]
+  }
+  treemap(treemap.dat,
+          index = input$var,
+          vSize= "N",
+          inflate.labels = T,
+          type = "index",
+          border.col="white",
+          palette = "Set2",
+          overlap.labels = 1,
+          title=" "
+  )
+})
+
+```
+
+
+
+Map {data-orientation=columns}
+===============================
+
+Column {data-width=270}
+----------------------------------------------------------------------
+
+<h2>Data Visualization of Average Points by Country </h2>
+
+###Filter For Map
+
+```{r,eval=T}
+
+inputPanel(
+  selectInput(inputId = "grapevar",label="Select Variety:",choices = c("All",as.character(unique.variety)), selected="All"),
+  selectInput(inputId = "price",label="Select Price Range",choices = unique.price.range, selected = unique.price.range[2], multiple=T)
+)
+```
+
+
+### Overall points distribution 
+
+
+```{r}
+renderPlot({
+  hist(dat$points,xlab="points", col= "#FF99CC",border="white", main="")
+})
+
+```
+
+
+
+
+Column {data-width=730}
+-----------------------------------------------------------------------
+### MAP
+
+```{r,eval=T}
+
+renderLeaflet({
+  
+  if(input$grapevar == "All"){
+    avepoints=dat[get(price.range.name)%in% input$price,.(ave=mean(get(points.name),na.rm=T),N=.N, SD=sd(get(points.name),na.rm = T)),by=country.name]
+  } else{
+    avepoints=dat[get(variety.name)%in% input$grapevar & get(price.range.name)%in% input$price, .(ave=mean(get(points.name),na.rm = T),N=.N, SD=sd(get(points.name),na.rm = T)), by=country.name]
+  }
+  library(maptools)
+  data(wrld_simpl)
+  mapdat=wrld_simpl[wrld_simpl$NAME %in% avepoints$country|wrld_simpl$ISO2 %in% avepoints$country|wrld_simpl$ISO3 %in% avepoints$country,]
+  avepoints=avepoints[order(match(mapdat$NAME,avepoints$country)),]
+  
+  pal <- colorBin(palette = "RdPu", domain = avepoints$ave, bins =5)
+  
+  geolab<- paste("Country: <b>",  mapdat$NAME , "</b> <br>",
+                 "Number of Records: <b>", avepoints$N,"</b> <br>",
+           "Mean Points: <b>", round(avepoints$ave,digits=3), "</b> <br>",
+          " SD Points: <b>", round(avepoints$SD,digits=3), "</b> <br>" )
+  
+
+  leaf<- leaflet(mapdat,
+                 leafletOptions(minZoom = 1)) %>% 
+    addProviderTiles(providers$OpenStreetMap.DE) %>%
+    setView(lng=11,
+            lat=mean(mapdat$LAT),
+            zoom=1.5)%>%
+    addPolygons(
+      fillColor = ~pal(avepoints$ave),
+      color = "white", 
+      weight=1, 
+      smoothFactor = 0.5, 
+      fillOpacity = 0.8,
+      highlightOptions = highlightOptions(color = "white", weight = 2,bringToFront = TRUE),
+        label = lapply(geolab, HTML),
+      labelOptions = labelOptions(
+    style = list("font-weight" = "normal", 
+                 padding = "7px7px", 
+                 "box-shadow" = "3px 3px rgba(0,0,0,0.25)"),
+    textsize = "14px",
+    direction = "auto")) %>%
+    addLegend(position="topright",pal = pal, values = ~ave, opacity = 0.8, title = "Average Points")
+
+})
+
+
+```
+
+ 
+<!-- Reviews Analysis -->
+<!-- ==================================== -->
+
+<!-- ```{r} -->
+<!-- renderPlot({ -->
+<!--   subdat <- dat %>% select(variety.name,country.name,points.name,province.name, winery.name,description.name) -->
+<!--   subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+') -->
+
+<!--   wordcloudData <- subdat%>% -->
+<!--     unnest_tokens(output = word, input = description) %>% -->
+<!--     anti_join(stop_words)%>% -->
+<!--     group_by(word)%>% -->
+<!--     summarize(freq = n())%>% -->
+<!--     arrange(desc(freq))%>% -->
+<!--     ungroup()%>% -->
+<!--     data.frame() -->
+
+<!--   wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5), -->
+<!--           max.words = 100, colors = brewer.pal(10,'Spectral')) -->
+
+<!-- }) -->
+<!-- ``` -->
+

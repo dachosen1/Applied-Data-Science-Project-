@@ -16,13 +16,20 @@ library(tidytext)
 library(qdap)
 library(ggthemes)
 library(wordcloud)
-
 library(RColorBrewer)
+library(tm)
+library(stringr)
+library(quanteda)
+library(irlba)
+library(ggplot2)
+library(caret)
 ```
 
 
 ```{r read data, echo=FALSE}
 dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
+dat <- dat[,-1]
+
 ```
 
 ```{r constants}
@@ -169,3 +176,110 @@ wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5),
           max.words = 100, colors = brewer.pal(10,'Spectral'))
 
 ```
+
+
+
+#---------------------------------------------NLP 
+
+
+```{r}
+textdat=dat[,.(description=as.character(get(description.name)),points)]
+length(which(!complete.cases(textdat))) # check if there are incomplete cases
+```
+
+```{r}
+textdat=textdat[,textlen:=nchar(description)]
+textdat=textdat[,description:=tolower(description)]
+fix.contractions=function(dat){
+  dat=gsub("isn't", "is not",dat)
+  dat=gsub("'s","",dat)
+  dat=gsub("'","",dat)
+  dat=gsub("wine", "",dat)
+  dat=removePunctuation(dat)
+  return(dat)
+}
+
+#incomplete.cases=which(!complete.cases(train.tokens.tfidf))
+
+textdat=textdat[,lapply(.SD, FUN="fix.contractions")]
+# ggplot(textdat,aes(x=textlen,fill=points))+geom_histogram(binwidth = 5,stat="count")
+
+
+
+# set.seed(423)
+# indexes=createDataPartition(textdat$points,times=1,p=0.7,list=F) # 70% as train data 
+# text.train=textdat[indexes,]
+# text.test=textdat[-indexes,]
+text.train=textdat[1:100,] #due to memory issue, we select 100 data to test method for now
+
+#tokenization
+
+text.train.tokens=tokens(text.train$description,what="word") # cut reviews into single words
+head(stopwords())
+```
+
+```{r}
+text.train.tokens=tokens_select(text.train.tokens,stopwords(),selection = "remove" ) # remove unwanted words
+text.train.tokens=tokens_wordstem(text.train.tokens,language = "english") #word-stem
+
+head(text.train.tokens,n=3)
+```
+
+```{r}
+#uni-gram and bi-gram
+text.train.tokens=tokens_ngrams(text.train.tokens,n=1:2)
+
+#bag-of-words model
+train.tokens.dfm=dfm(text.train.tokens,tolower=F)
+head(train.tokens.dfm)
+train.tokens.matrix=as.matrix(train.tokens.dfm)
+
+#ti-idf
+term.freq=function(row){
+  row/sum(row)
+}
+
+inverse.doc.frq=function(col){
+  corpus.size=length(col)
+  doc.count=length(which(col>0))
+  
+  log10(corpus.size/doc.count)
+}
+
+tf.idf=function(tf,idf){
+  tf*idf
+}
+
+
+
+train.tokens.df=apply(train.tokens.matrix,1,term.freq)
+train.tokens.idf=apply(train.tokens.matrix,2,inverse.doc.frq)
+train.tokens.tfidf=apply(train.tokens.df,2,tf.idf,idf=train.tokens.idf)
+
+#fix incomplete cases
+incomplete.cases=which(!complete.cases(train.tokens.tfidf))
+train.tokens.tfidf[incomplete.cases,]=rep(0.0,ncol(train.tokens.tfidf))
+sum(which(!complete.cases(train.tokens.tfidf)))
+
+
+
+#check incomplete cases
+incomplete.cases=which(!complete.cases(train.tokens.idf))
+
+
+#Clean data frame 
+train.tokens.tfidf.df=cbind(points=text.train$points,data.frame(train.tokens.tfidf))
+names(train.tokens.tfidf.df)=make.names(names(train.tokens.tfidf.df))
+
+
+```
+
+
+
+
+
+
+
+
+
+
