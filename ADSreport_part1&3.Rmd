@@ -131,6 +131,17 @@ inverse.doc.freq <- function(col) {
 tf.idf <- function(x, idf) {
   x * idf
 }
+text.prep=function(dat,var.name){
+  # tokenization
+  dat.token=tokens(dat[,get(var.name)],what="word", remove_punct=T, remove_symbols=T, remove_hyphens = T)
+  # lower case the tokens
+  dat.token=tokens_tolower(dat.token)
+  # stopword removal
+  dat.token=tokens_select(dat.token,stopwords(),selection = "remove")
+  # stemming
+  dat.token=tokens_wordstem(dat.token,language = "english")
+  return(dat.token)
+}
 ```
 
 
@@ -326,7 +337,7 @@ text.tokens.tfidf <-  apply(train.tokens.df.norm, 2, tf.idf, idf = text.tokens.i
 round(text.tokens.tfidf[1:10, 1:6],2)
 ```
 
-Forexample, in the text 1, fruit has a lower score than acid. We believe that "fruit" has less information because most of reviews include "fruit". On the contrary, acidity is more useful in this case, since only part of the wines are acid, which makes it more unique and characteristic, and more suitable as a variable.
+For example, in the text 1, fruit has a lower score than acid. We believe that "fruit" has less information because most of reviews include "fruit". On the contrary, acidity is more useful in this case, since only part of the wines are acid, which makes it more unique and characteristic, and more suitable as a variable.
 
 ##2.4 Prediction
 
