@@ -10,7 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r library, include=FALSE}
+library(prettydoc)
 library(data.table)
+library(DT)
 library(tidyverse)
 library(tm)
 library(stringr)
@@ -18,16 +20,13 @@ library(quanteda)
 library(irlba)
 library(ggplot2)
 library(caret)
-library(tidytext)
+library(recommenderlab)
 library(Hmisc)
 library(wordcloud)
 library(wordcloud2)
-library(DT)
-library(png)
-library(recommenderlab)
 ```
 
-```{r read data, echo=FALSE,warning=FALSE}
+```{r read data, echo=FALSE}
 dat <- fread(input = "wines.csv",verbose = FALSE,na.strings=c(""))
 dat=dat[,-1]
 ```
@@ -54,91 +53,10 @@ get.unique = function(x){
   ux=length(unique(x))
   return(ux)
 }
-## create formula
-create.formula <- function(outcome.name, input.names, input.patterns=NA, all.data.names=NA, return.as="character"){
-  variable.names.from.patterns <- c()
-  if (!is.na(input.patterns[1]) & !is.na(all.data.names[1])) {
-    pattern <- paste(input.patterns, collapse = "|")
-    variable.names.from.patterns <- all.data.names[grep(pattern = pattern, x = all.data.names)]
-  }
-  all.input.names <- unique(c(input.names, variable.names.from.patterns))
-  all.input.names <- all.input.names[all.input.names !=outcome.name]
-  if (!is.na(all.data.names[1])) {
-    all.input.names <- all.input.names[all.input.names %in% all.data.names]
-  }
-  input.names.delineated <- sprintf("`%s`", all.input.names)
-  the.formula <- sprintf("`%s` ~ %s", outcome.name, paste(input.names.delineated, collapse = " + "))
-  if (return.as == "formula") {
-    return(as.formula(the.formula))
-  }
-  if (return.as != "formula") {
-    return(the.formula)
-  }
-}
-
-reduce.formula <- function(dat, the.initial.formula, max.categories = NA) {
-  require(data.table)
-  dat <- setDT(dat)
-  
-  the.sides <- strsplit(x = the.initial.formula, split = "~")[[1]]
-  lhs <- trimws(x = the.sides[1], which = "both")
-  lhs.original <- gsub(pattern = "`", replacement = "", x = lhs)
-  if (!(lhs.original %in% names(dat))) {
-    return("Error: Outcome variable is not in names(dat).")
-  }
-  the.pieces.untrimmed <- strsplit(x = the.sides[2], split = "+", fixed = TRUE)[[1]]
-  the.pieces.untrimmed.2 <- gsub(pattern = "`", replacement = "", x = the.pieces.untrimmed, fixed = TRUE)
-  the.pieces.in.names <- trimws(x = the.pieces.untrimmed.2, which = "both")
-
-  the.pieces <- the.pieces.in.names[the.pieces.in.names %in% names(dat)]
-  num.variables <- length(the.pieces)
-  include.pieces <- logical(num.variables)
-  
-  for (i in 1:num.variables) {
-    unique.values <- dat[, unique(get(the.pieces[i]))]
-    num.unique.values <- length(unique.values)
-    if (num.unique.values >= 2) {
-      include.pieces[i] <- TRUE
-    }
-    if (!is.na(max.categories)) {
-      if (dat[, is.character(get(the.pieces[i])) | is.factor(get(the.pieces[i]))] == TRUE) {
-        if (num.unique.values > max.categories) {
-          include.pieces[i] <- FALSE
-        }
-      }
-    }
-  }
-  pieces.rhs <- sprintf("`%s`", the.pieces[include.pieces == TRUE])
-  rhs <- paste(pieces.rhs, collapse = " + ")
-  the.formula <- sprintf("%s ~ %s", lhs, rhs)
-  return(the.formula)
-}
-
-# calculating relative term frequency (TF)
-term.frequency <- function(row) {
-  row / sum(row)
-}
-
-# calculating inverse document frequency (IDF)
-inverse.doc.freq <- function(col) {
-  corpus.size <- length(col)
-  doc.count <- length(which(col > 0))
-
-  log10(corpus.size / doc.count)
-}
-
-# calculating TF-IDF.
-tf.idf <- function(x, idf) {
-  x * idf
-}
 ```
 
 
-```{r constants, echo=F}
-description.name="description"
-points.name="points"
-points.group.name="points.group"
-
+```{r constants, include=F}
 country.name <- "country"
 description.name <- "description"           
 designation.name <- "designation"           
@@ -152,10 +70,8 @@ twitter.name <- "taster_twitter_handle"
 title.name <- "title"                 
 variaty.name <- "variety"              
 winery.name <- "winery"               
-
 dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
 dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
-
 single.var <- c(points.name, price.name, country.name)
 ```
 
@@ -237,152 +153,125 @@ hist(dat$points,xlab="points", col= "#85C1E9", border="white", main="Histogram o
 
 
 # Investigation:
-#1. Sentiment Analysis 
+##1. Sentiment Analysis 
+###Overview of *Description*
 
-#2. Text Analysis
+Suppose we are exploring sales status of different wines in our website. What do we care about most? The answer might be the *Final Point* the testers give out. But some reality need to be considered. 
+First of all, the dataset we have only includes data with points above 80. Comparing to our scoring scale, which is 0-100, scores from 80 to 100 have a strong indication that the testers are relatively like this kind of wine. Under this circumstance, how can we specify the difference among them? 
+Second, when customers evaluate a product, their evaluation objects vary. Some people focus on the taste while others prefer the looks and smell. As what we get from Final Point is just the final evaluation, we cannot tell which aspect this tester pay attention to. However, when recommending product to users, it could be more precise if you know about his or her preference on which aspect he or she focuses on. 
+From the reason above, *Final Point* is not enough for us to make an accurate conclusion on customers exact evaluation on this type of wine. Thus, we should take a look at *Description* ,which gives us more details.
+In order to analyze this text variable, we first take a look at the words' length. We split every sentence into words and draw a distribution of words' length. We find that it is close to a normal distribution with mean is roughly 45 words per description, which is a good start.
 
-The sentiment analysis shows there exits relationship between reviews and points, which is consistent with our common sense. In this part, we continued analyzing wines' review.
-
-##1.1 The length of reviews
-
-The plot below shows that the wines with longer reviews tend to have higher points. So texters usually have more opinions to share when he/she thinks the wine is great. It is also worth to notice that the variance of text length tend to be bigger if the wine has higher points. It may imply that even the good wines usually have longer reviews, the length is also influenced by many other factors, such as ttesters' habits. But if the wine is not so good, testers always have less to write down.
-
-```{r text_length, warning=FALSE}
-textdat <- dat[,.(description=as.character(get(description.name)),
-                  points=as.numeric(get(points.name)))]
-textdat <- textdat[!(is.na(get(points.name))),]
-
-textdat=textdat[,textlen:=as.numeric(nchar(description))]
-# quantile(textdat$points,probs=seq(0,1,0.25))
-cuts.points <- c(80,86,88,91,100)
-textdat[, eval(points.group.name):=cut2(x=get(points.name), cuts=cuts.points)]
-
-ggplot(textdat,aes(x=textlen,fill=points.group))+
-  theme_classic()+
-  geom_histogram(binwidth = 5,stat="count")
+```{r distributioin of words length}
+ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill = 'royalblue4') + 
+ theme_classic() +
+ ggtitle('Description word length Distribution') + 
+ xlab('Number of words used in Description') + 
+ ylab('Number of Observations') + 
+ theme(plot.title = element_text(hjust = 0.5)) + scale_fill_brewer(palette = "Blues")
+ ylim(0,25000) 
 ```
 
-##2.2 Data Pipeline
+To give a accurate evaluation, we start from estimating sentiment behind descriptioin, which is sentiment analysis.
+There's a default classification criteria of "negative" and "positive", which helps us to roughly divide description into two categories. From the result,we get more positive descriptions than negative one which kind of makes sense because we just use data with points from 80 to 100. There, the proportion of positive description is 79% and that of negative description is roughly 21%.
+The result kind of shows discrepancy. As we mention above, we shift data with points above 80, which is a relatively higher score with scale from 0 to 100. We didn't expect negative description that much. In order to have a more realistic understanding of the result, we create a new scale which is from 80 to 100 and we assume points above 90 is "positive" points while points below 90 is "negative" points.Thus, we make a prediction the distribution of new-scaled points is consistent with the description of negative and positive. However, from what we get we conclude that the prediction is not correct, which indicates that although the final point is positive, we still have negative desription. Thus, it's necessary to analyze description with more specific classification which is text analysis.
 
-Before analysis, we need to do some preparation. 
-  
-- **Tokenization**: Cut the reviews into single words to calculate the frequency of their appearance.
-
-```{r tokenization}
-text.tokens=tokens(textdat$description,what="word",remove_numbers=TRUE,
-                   remove_punct=TRUE,remove_symbols = TRUE, remove_hyphens = TRUE) 
-```
-
-- **Remove "stopwords"**: Remove "stopwords" such as "the", "a", "are", which are meaningless but necessary in sentence. 
-
-```{r stopword}
-text.tokens=tokens_select(text.tokens,stopwords(),selection = "remove" ) 
-```
-
-- **Stem the words**: Stem the words in order to reduce the number of total different words appeare in the reviews. For example, this step change "fruit", "fruity", "fruits" all into "fruiti". Even though "fruiti" is not actually a word, it is still understandable.
-
-```{r stem}
-text.tokens=tokens_wordstem(text.tokens,language = "english") 
-```
-
-- **Create a DFM**: Create a document-feature matrix for later analysis
-
-```{r pipeline ,echo = TRUE}
-text.tokens.dfm <- dfm(text.tokens, tolower = FALSE)
-```
-
-- **WordCloud**: Use WorldCloud to see the results. "fruit", "acid", "tanni", "cherry", "dry" tend to appear more frequently than others. We should set those words as new variables.
-
-```{r wordcloud}
-wordcloudData <- data.table(word=colnames(text.tokens.dfm),freq=colSums(text.tokens.dfm))
-setorderv(wordcloudData,cols="freq",order=-1)
-wordcloud2(data=wordcloudData,size=1,minSize=0.1)
-```
-
-##2.3 Term Frequency-Inverse Document Frequency (TF-IDF)
-
-TF-IDF is a powerful technique for enhancing the information contained within our document-frequency matrix. The tf-idf weight measures how important a word is to a document in a collection or corpus. The importance increases proportionally to the number of times a word appears in the document but is offset by the frequency of the word in the corpus (data-set). To complete this process, we need two steps listed below:
-
-- Normalize all documents in the corpus to be length independent (TF)
-
-- Penalize terms occur frequency across corpus and inverse document frequency (IDF) 
-
-```{r TF-IDF}
-var.chosen<-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh','berri','oak','plum','textur','sweet','appl','full','blend','balanc','bodi','blackberri','light','soft','age','structur','white','crisp','fruiti','citrus','dark','miner','herb','Cabernet','raspberri','vanilla','bright','pepper','firm','green','lemon','juici','peach','concentr','pear','chocol','currant','Pinot','smooth','spici','wood','lime','intens','tart','tannic','tight','herbal','orang')
-
-# Transform to a matrix and inspect.
-text.tokens.matrix <- as.matrix(text.tokens.dfm[,var.chosen])
-
-# First step, normalize all documents via TF.
-train.tokens.df.norm <- apply(text.tokens.matrix, 1, term.frequency)
-
-# Second step, calculate the IDF vector that we will use - both
-# for training data and for test data!
-text.tokens.idf <- apply(text.tokens.matrix, 2, inverse.doc.freq)
-
-# Lastly, calculate TF-IDF for our training corpus.
-text.tokens.tfidf <-  apply(train.tokens.df.norm, 2, tf.idf, idf = text.tokens.idf)
-
-round(text.tokens.tfidf[1:10, 1:6],2)
-```
-
-Forexample, in the text 1, fruit has a lower score than acid. We believe that "fruit" has less information because most of reviews include "fruit". On the contrary, acidity is more useful in this case, since only part of the wines are acid, which makes it more unique and characteristic, and more suitable as a variable.
-
-##2.4 Prediction
-
-Based on wordcloud plot and TF-IDF, we selected top 100 frequetent words. Then we delected some meaningless words for this project, such as "wine","well","show" and etc. In the end, we chose 58 words as our new variables. 
-
-```{r train_test}
-#dim(text.tokens.matrix)
-text.tokens.df <- cbind(points = textdat$points, data.frame(text.tokens.matrix))
-
-set.seed(423)
-indexes=createDataPartition(text.tokens.df$points,times=1,p=0.7,list=F) # 70% as train data 
-train=text.tokens.df[indexes,]
-test=text.tokens.df[-indexes,]
-```
-
-```{r model}
-formula.points <- create.formula(outcome.name="points",input.names=var.chosen)
-the.formula <- reduce.formula(dat = train, the.initial.formula = formula.points)
-model <- lm(formula = the.formula, data=train)
-summary(model)
-```
-
-F statistic is 483.7 and p-value is smaller than $2.2*10^{-16}$. Thus, the model is significant. Also, most variables are significant in this model. But adjusted R-squared is 0.2353, which is not really high. Considering that testers may not write down all aspect of a wine and the standard of valuating a wine is rather compelecated, we still think this is a nice try.
-
-```{r predict}
-test$points.est <- predict(model,newdata=test)
-test$points.diff <- test$points.est-test$points
-perc <- round(100*sum(abs(test$points.diff)<=2,na.rm=TRUE)/nrow(test),2)
-```
-
-Since points is continuous, we allow a samll difference between actual points and estimated points (eg:abs(diff)=2), the accuracy rate is `r perc`%.
-
-```{r check_performance}
-ggplot(data = test,aes(x= points.diff,y=..density..)) + 
-  geom_histogram(na.rm=TRUE,fill="royalblue4",bins=30) +
-  geom_vline(xintercept =-2, col="red",lty=2,lwd=1.5) +
-  geom_vline(xintercept = 2, col="red",lty=2,lwd=1.5) +
-  theme_classic() +
-  ggtitle('Histogram of Residuals') + 
-  xlab('Residuals') + 
-  ylab('Probability') + 
-  theme(plot.title = element_text(hjust = 0.5)) 
+```{r sentiment analysis}
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('bing')) %>%
+group_by(sentiment) %>%
+count() %>%
+ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + 
+  scale_fill_brewer(palette = "Accent")+
+  ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+  ylim(0,400000) + theme(plot.title = element_text(hjust = 0.5)) 
 ```
 
 
-#3. Recommendation System
+##Sentiment analysis of different countries
+
+There are two main factors which influence the quality of a type of wine, one is natural cause and one is man-made cause. The country of origin is the important component in natural cause. Thus, we want to specify if wines from different countries will have different descriptions from testers. With the sentiment perspective, it will be shown as the difference in the distribution of negative and positive sentiment in description.
+Then, we draw a graph of sentiment distribution to see the difference among wines from different counties. As some countries’ wine do not have sufficient recorded review, we just show countries with large amount of data. 
+From the result, we can tell that there exists difference among countries. Meanwhile, wines that from most of the famous places like, France, South Africa have the larger proportion of positive description which is consistent with our intuition.
+
+```{r }
+data1 <- subdat[,length(get(description.name)),by=country.name]
+setorderv(data1,cols = "V1",-1)
+order1 <- data1$country[1:15]
+
+subdat[get(country.name)%in%order1,] %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('bing')) %>%
+group_by(country,sentiment) %>%
+summarise(n = n())%>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country , y=proportion,fill=sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+  scale_fill_brewer(palette = "Accent")+
+ ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
+ theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+##Other interesting finding
+
+Dividing sentiment in "negative" and "positive" is somewhat sketchy and we have other way to make a more specific classfication. We extract more emotions from descriptions such as "disgust","joy" etc. To our surprise, there exists words containing sentiment like "anger","sad" which seems a little bit strange in a wine description. This interesting finding gives us more hint on our further text analysis.
+
+```{r}
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(sentiment) %>%
+count() %>%
+ggplot(aes(x=reorder(sentiment,-n),y=n, fill=sentiment)) + geom_col() + 
+ theme_grey() + guides(fill=F) + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Obversation') + 
+ theme(plot.title = element_text(hjust = 0.5)) + xlab('Sentiment: Emotion') + 
+  geom_text(aes(label = n),vjust = -.5, nudge_y = 1.4)
+
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+group_by(country,sentiment) %>%
+summarise(n = n()) %>%
+mutate(proportion = n/sum(n)) %>%
+ggplot(aes(x= country, y=proportion,fill=sentiment, col = sentiment)) + geom_col() + 
+ theme_classic() + guides(fill=F) + coord_flip() + 
+ ggtitle('Sentiment Distribution') + ylab('Number of Oversation') + 
+ theme(plot.title = element_text(hjust = 0.5))
+
+
+subdat %>%
+unnest_tokens(output = word, input = description) %>%
+inner_join(get_sentiments('nrc')) %>%
+ group_by(sentiment,points) %>%
+ count()%>%
+ group_by(sentiment, points) %>%
+ summarise(n = mean(n)) %>%
+ ungroup() %>%
+ ggplot(aes(x=points, y=n, fill=points)) +
+  geom_col() + facet_wrap(~sentiment) +
+  guides(fill=F) + coord_flip() +theme_classic() + ylab('Number of Observation') + 
+  xlab('Points') + ggtitle('Emotion') + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+##2. Text Analysis
+##3. Recommendation System
 
 # The Results
-# Interpretation
-# Assummptions
-# Limitations and Uncertainties
-# Areas of Future Investigation
+## Interpretation
+## Assummptions
+## Limitations and Uncertainties
+## Areas of Future Investigation
 
 # References
 [1]Bernard Chen, Valentin V., James P., and Travis A. Wineinformatics: A Quantitative Analysis of Wine Reviewers. <i> Fermentation </i>. 2018 <br>
 [2]Quandt, R.E. A note on a test for the sum of ranksums. <i>J. Wine Econ</i>. 2007, 2, 98-102. <br>
-[3]tf-idf Model for Page Ranking. Retrieved from https://www.geeksforgeeks.org/tf-idf-model-for-page-ranking/.
+
+
 
 
