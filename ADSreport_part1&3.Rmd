@@ -275,25 +275,17 @@ ggplot(textdat,aes(x=textlen,fill=points.group))+
 
 ##2.2 Data Pipeline
 
-Before analysis, we need to do some preparation. 
+Before analysis on text data, we did some preparation. 
   
 - **Tokenization**: Cut the reviews into single words to calculate the frequency of their appearance.
 
-```{r tokenization}
-text.tokens=tokens(textdat$description,what="word",remove_numbers=TRUE,
-                   remove_punct=TRUE,remove_symbols = TRUE, remove_hyphens = TRUE) 
-```
-
 - **Remove "stopwords"**: Remove "stopwords" such as "the", "a", "are", which are meaningless but necessary in sentence. 
-
-```{r stopword}
-text.tokens=tokens_select(text.tokens,stopwords(),selection = "remove" ) 
-```
 
 - **Stem the words**: Stem the words in order to reduce the number of total different words appeare in the reviews. For example, this step change "fruit", "fruity", "fruits" all into "fruiti". Even though "fruiti" is not actually a word, it is still understandable.
 
-```{r stem}
-text.tokens=tokens_wordstem(text.tokens,language = "english") 
+
+```{r}
+text.tokens=text.prep(textdat,description.name)
 ```
 
 - **Create a DFM**: Create a document-feature matrix for later analysis
