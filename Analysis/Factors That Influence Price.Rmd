@@ -31,7 +31,7 @@ region_2.name <- "region_2"
 taster.name <- "taster_name"           
 twitter.name <- "taster_twitter_handle" 
 title.name <- "title"                 
-variaty.name <- "variety"              
+variety.name <- "variety"              
 winery.name <- "winery"               
 
 dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
@@ -46,7 +46,7 @@ price.category.name <- c('Value','Value Premium','Premium','Super Premium','Ultr
                          'Luxury','Super Luxery','Icon')
 ```
 
-```{r}
+```{r functions}
 round.numerics <- function(x, digits){
   if(is.numeric(x)){
     x <- round(x = x, digits = digits)
@@ -77,13 +77,10 @@ corrplot(correlation.value, method = 'square',type = 'lower',diag = F)
 ```
 
 
-
-
-
-
 ```{r}
 library(broom); 
 library(coefplot)
+library(gvlma)
 # drop correlated values 
 data.numeric2 <- data.numeric
 data.numeric2$title <- NULL
@@ -109,6 +106,7 @@ coefplot(lm.model)
 
 
 ```{r }
+library(Hmisc)
 dat$price <- cut2(x = dat$price,cuts = price.category.range, price.category.name)
 levels(dat$price) <- price.category.name
 
@@ -119,9 +117,9 @@ ggplot(data = price.count, aes(x = price, y = count)) + geom_bar(stat = 'identit
 ```
 
 
-
-
 ```{r}
+
+new.dat <- dat
 
 length(unique(new.dat$designation))
 length(unique(new.dat$province))
@@ -138,13 +136,13 @@ dat.notable.provice <- dat[get(province.name) %in% dat.notable.provice.count$pro
 
 multinom.model <- nnet::multinom(formula = price ~ province, data = dat.notable.provice)
 
-z <- summary(multinom.model)$coefficients/summary(multinom.model)$standard.errors
+#z <- summary(multinom.model)$coefficients/summary(multinom.model)$standard.errors
 
 # 2-tailed z test
-p <- (1 - pnorm(abs(z), 0, 1)) * 2
-p
+#p <- (1 - pnorm(abs(z), 0, 1)) * 2
+#p
 
-exp(coef(multinom.model))
+#exp(coef(multinom.model))
 ```
 
 ```{r include=FALSE}
@@ -154,6 +152,8 @@ library(reshape2)
 library(Hmisc)
 ```
 
+# Province
+
 ```{r}
 # olr model for provice 
 olr.model.province <- polr(price ~ points + province, data = dat.notable.provice, Hess = TRUE)
@@ -162,10 +162,14 @@ olr.model.province <- polr(price ~ points + province, data = dat.notable.provice
 ctable.province <- coef(summary(olr.model.province))
 
 # calculate and store p values
-p.province <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+p.province <- round(pnorm(abs(ctable.province[, "t value"]), lower.tail = FALSE) * 2,5)
 
 # combined table
-ctable.province <- cbind(ctable, "p value" = p)
+ctable.province <- cbind(ctable.province, "p value" = p.province)
+
+odd.ratio.province <- round(exp(ctable.province[,'Value']),3)
+ctable.province <- cbind(ctable.province, 'Odds Ratio' = odd.ratio.province)
+data.frame(ctable.province)
 ```
 
 
@@ -175,20 +179,66 @@ ctable.province <- cbind(ctable, "p value" = p)
 dat.designation.count <- dat[,.N, by = designation.name][order(-N)][N >50]
 dat.designation <- dat[get(designation.name) %in% dat.designation.count$designation]
 
-
 # olr model for provice 
-olr.model.designation <- polr(price ~ designation, data = dat.notable.provice, Hess = TRUE)
+olr.model.designation <- polr(price ~ designation, data = dat.designation, Hess = TRUE)
 
 # store table
 ctable.designation <- coef(summary(olr.model.designation))
 
 # calculate and store p values
-p.designation <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+p.designation <- round(pnorm(abs(ctable.designation[, "t value"]), lower.tail = FALSE) * 2,5)
 
 # combined table
-ctable.designation <- cbind(ctable, "p value" = p)
+ctable.designation <- cbind(ctable.designation, "p value" = p.designation)
+odd.ratio.designation <- round(exp(ctable.designation[,'Value']),3)
+ctable.designation <- cbind(ctable.designation, 'Odds Ratio' = odd.ratio.designation)
 
+data.frame(ctable.designation)
 ```
+
+# variety 
+
+```{r}
+dat.variety.count <- dat[,.N, by = variety.name][order(-N)][N >200]
+
+dat.variety <- dat[get(variety.name) %in% dat.variety.count$variety]
+
+# olr model for provice 
+olr.model.variety <- polr(price ~ variety, data = dat.variety, Hess = TRUE)
+
+# store table
+ctable.variety <- coef(summary(olr.model.variety))
+
+# calculate and store p values
+p.variety <- round(pnorm(abs(ctable.variety[, "t value"]), lower.tail = FALSE) * 2,5)
+
+# combined table
+ctable.variety <- cbind(ctable.variety, "p value" = p.variety)
+odd.ratio.variety <- round(exp(ctable.variety[,'Value']),3)
+ctable.variety <- cbind(ctable.variety, 'Odds Ratio' = odd.ratio.variety)
+
+data.frame(ctable.variety)
+```
+ 
+ What makes value different from Icon? 
+ 
+```{r}
+dat.value.icon <- new.dat[get(price.name) %in% c('Value','Icon')]
+
+dat.value.icon$price <- droplevels(dat.value.icon$price)
+
+levels(dat.value.icon$price)
+dat.value.icon[, eval(price.name) := as.numeric(get(price.name))]
+
+dat.value.icon[get(price.name) == 1, eval(price.name) := 0]
+dat.value.icon[get(price.name) == 2, eval(price.name) := 1]
+
+dat.value.icon$V1 <- NULL
+
+model.glm <- glm(price ~. , data = dat.value.icon, family = 'binomial')
+```
+ 
+
 
 
 
