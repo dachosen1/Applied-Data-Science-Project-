@@ -1,5 +1,5 @@
 ---
-title: "Analysis on Wine Reviews"
+title: "Applied Data Science Finace Project: Analysis on Wine Reviews"
 output:
   prettydoc::html_pretty:
     theme: cayman
@@ -25,6 +25,11 @@ library(wordcloud2)
 library(DT)
 library(png)
 library(recommenderlab)
+library(corrplot)
+library(foreign)
+library(MASS)
+library(reshape2)
+library(Hmisc)
 ```
 
 ```{r read data, echo=FALSE,warning=FALSE}
@@ -196,9 +201,9 @@ province.min <- 500
 
 # Introduction
 
-<p>One of the most important research questions in the wine related area is the ranking, rating and judging of wine[1]. In the past, the research on these problems manily utilized samll dataset[2]. However, with data science techniques, we are able to investigate the problem using large amount of data. </p>
+<p> One of the most important research questions in the wine related area is the ranking, rating and judging of wine[1]. In the past, the research on these problems manily utilized samll dataset[2]. However, with data science techniques, we are able to investigate the problem using large amount of data. </p>
 
-<p>Majority of the studies focus on analyzing physicochemical laboratory wine data, while little research has been conducted on the content of wine reviews. Mining useful information from wine reviews and tasters preferences can provide new insights from a consumer perspective. Therefore, it is meaningful to untilize these data and generate better wine recommendations.</p>
+<p> Majority of the studies focus on analyzing physicochemical laboratory wine data, while little research has been conducted on the content of wine reviews. Mining useful information from wine reviews and tasters preferences can provide new insights from a consumer perspective and business perspective. Therefore, it is meaningful to untilize these data and generate better wine recommendations.</p>
 
 
 # Source of Data
@@ -249,9 +254,9 @@ We then examined the unique values for each varible. **Designation, winery, titl
 
 Variable **points** ranges from 80 to 100. Its distribution was close to a bell shape. <br>
 
-**Description, taster_name** and **taster_twitter_handle** provides information about the taster and their reviews on the wine. We examined these variables later based on the needs for text anlysis and recommendation systems building. We also assumed tha the the missing values for taster name were submitted anomymously. Those value have been altered to reflect anomymous. 
+**Description**, **taster_name** and **taster_twitter_handle** provides information about the taster and their reviews on the wine. We examined these variables later based on the needs for text anlysis and recommendation systems building. We also assumed tha the the missing values for taster name were submitted anomymously. Those value have been altered to reflect anomymous. 
 
-**Designation ** We reseached wine designation to further understand Wine Designation and according to Napa Valley Vinters: Vineyard Designations Optional. Many wineries name the vineyard where the grapes were grown because the winery believes the property produces an unusually high-quality grape. The winery or an independent grower may own the vineyard. When using a vineyard designation on a wine label, federal regulations require that 95% of the grapes be grown in the named vineyard.
+**Designation** We reseached wine designation to further understand Wine Designation and according to Napa Valley Vinters: Vineyard Designations Optional. Many wineries name the vineyard where the grapes were grown because the winery believes the property produces an unusually high-quality grape. The winery or an independent grower may own the vineyard. When using a vineyard designation on a wine label, federal regulations require that 95% of the grapes be grown in the named vineyard.
 
 ```{r percentage missing}
 tab  <- dat[,lapply(X=.SD,FUN="miss.value"),.SD=names(dat)[-1]]
@@ -477,7 +482,12 @@ TF-IDF is a powerful technique for enhancing the information contained within ou
 - Penalize terms occur frequency across corpus and inverse document frequency (IDF) 
 
 ```{r TF-IDF error=recover}
-var.chosen<-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh','berri','oak','plum','textur','sweet','appl','full','blend','balanc','bodi','blackberri','light','soft','age','structur','white','crisp','fruiti','citrus','dark','miner','herb','Cabernet','raspberri','vanilla','bright','pepper','firm','green','lemon','juici','peach','concentr','pear','chocol','currant','Pinot','smooth','spici','wood','lime','intens','tart','tannic','tight','herbal','orang')
+var.chosen<-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh',
+              'berri','oak','plum','textur','sweet','appl','full','blend','balanc','bodi','blackberri',
+              'light','soft','age','structur','white','crisp','fruiti','citrus','dark','miner','herb',
+              'Cabernet','raspberri','vanilla','bright','pepper','firm','green','lemon','juici','peach',
+              'concentr','pear','chocol','currant','Pinot','smooth','spici','wood','lime','intens','tart',
+              'tannic','tight','herbal','orang')
 
 # Transform to a matrix and inspect.
 text.tokens.matrix <- as.matrix(text.tokens.dfm[,var.chosen])
@@ -560,15 +570,12 @@ image(data_matrix[1:19,1:50])
 ```
 
 ```{r train and test split}
-
 set.seed(256)
 split <- sample(x = nrow(data_matrix),size = 0.8*nrow(data_matrix))
 train <- data_matrix[split,]
 test <- data_matrix[-split,]
 
-
 mean(getRatings(data_matrix), na.rm = TRUE)
-
 
 es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
 ```
@@ -578,7 +585,6 @@ es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
 The similarity matrix allows you to understand how similar users are to each other. We are going to show the top 7. 
 
 ```{r similarity matrix}
-
 # similarity matrix using the euclidean distance 
 round(similarity(normalize(train[1:7]),method = 'euclidean'),3)
 
@@ -612,7 +618,6 @@ recom.ubcf.2 <- Recommender( data = getData(es, 'train'),
 pred.ubcf.2 <- predict(recom.ubcf.2,newdata = getData(es, 'known'), type = 'ratings')
 
 calcPredictionAccuracy(pred.ubcf.2, data = getData(es, 'unknown'))
-
 ```
 
 ### **Popular Methods** 
@@ -638,7 +643,6 @@ recom.popular.2 <- Recommender( data = getData(es, 'train'),
 pred.popular.2 <- predict(recom.popular.2,newdata = getData(es, 'known'), type = 'ratings')
 
 calcPredictionAccuracy(pred.popular.2, data = getData(es, 'unknown'))
-
 ```
  
 ### **Item Collaborative filtering** 
@@ -689,7 +693,6 @@ To understand the factors that impact price. Prior to building the regression mo
 
 
 ```{r}
-library(corrplot)
 data.numeric <- dat
 
 data.numeric$country <- as.numeric(as.factor(data.numeric$country))
@@ -723,7 +726,6 @@ lm.model <- lm(price ~., data = data.numeric2)
 lm.model.summary <- linear.regression.summary(lm.model)[,c(1,2,5:7)]
 lm.model.summary[,2:5] <- round(lm.model.summary[,2:5],3)
 datatable(lm.model.summary)
-
 ```
 
 For the next phase of the analysis, we want to capture significant differences in the model and interpret the categorical variables. According to Wine Folly, there are 8 categories of wine: 
@@ -752,7 +754,6 @@ ggplot(data = price.count, aes(x = price, y = count)) +
               text = element_text(size=15),
               axis.text.x = element_text(angle=0),
               plot.title = element_text(hjust = 0.5)) + xlab('Pricing Segment') + ylab('Count')
-
 ```
 
 A deeper dive into the categorical variables reveals that a significant portion of the categorical variables have very few observations. Lack of sufficient variables greatly impacts the strength of analysis and conclusion. In the next section, we are going to filter variables with insufficient variables. 
@@ -760,11 +761,9 @@ A deeper dive into the categorical variables reveals that a significant portion 
 How many unique variables are in `r designation.name`, `r province.name`, and `r variety.name`? 
 
 ```{r}
-
 paste0('There are ', length(unique(dat$designation)), ' unique observation values in the dataset')
 paste0('There are ', length(unique(dat$province)), ' unique province values in the dataset')
 paste0('There are ', length(unique(dat$variety)), ' unique variety values in the dataset')
-
 ```
 
 Given that we now have 8 dependent variables, a linear or logistic regression isn’t the best model to determine the factors that influence. After researching this problem, the best models that can address this situation are Multinomial regression and ordinal logit model.
@@ -802,13 +801,6 @@ The model summary output has a the odds ratio of each province and their respect
 ```{r multinom model province}
 multinom.model.province.coef <- round(data.frame(exp(coef(multinom.model.province)),2))
 datatable(multinom.model.province.coef)
-```
-
-```{r include=FALSE}
-library(foreign)
-library(MASS)
-library(reshape2)
-library(Hmisc)
 ```
 
 ```{r}
@@ -906,34 +898,34 @@ We Analyzed the factors that impact price. In the introduction, we stated that t
 
 
 # References
-[1]Bernard Chen, Valentin V., James P., and Travis A. Wineinformatics: A Quantitative Analysis of Wine Reviewers. <i> Fermentation </i>. 2018 <br>
+[1] Bernard Chen, Valentin V., James P., and Travis A. Wineinformatics: A Quantitative Analysis of Wine Reviewers. <i> Fermentation </i>. 2018 <br>
 
-[2]Quandt, R.E. A note on a test for the sum of ranksums. <i>J. Wine Econ</i>. 2007, 2, 98-102. <br>
+[2] Quandt, R.E. A note on a test for the sum of ranksums. <i>J. Wine Econ</i>. 2007, 2, 98-102. <br>
 
-[3]tf-idf Model for Page Ranking. Retrieved from https://www.geeksforgeeks.org/tf-idf-model-for-page-ranking/. <br>
+[3] tf-idf Model for Page Ranking. Retrieved from https://www.geeksforgeeks.org/tf-idf-model-for-page-ranking/. <br>
 
 [4] Napa Valley Vintners. (n.d.). How to Read a Wine Label Infographic. Retrieved May 05, 2019, from https://napavintners.com/wines/how_to_read_a_wine_label.asp
 
-[5]Aldrich, J. H., & Nelson, F. D. (1984). Linear probability, logit, and probit models. Thousand
+[5] Aldrich, J. H., & Nelson, F. D. (1984). Linear probability, logit, and probit models. Thousand
 Oaks, CA: Sage. 
 
-[6]Croissant, Y. (2011). Package ‘mlogit’. http://cran.r-project.org/web/packages/mlogit/index.html 
+[6] Croissant, Y. (2011). Package ‘mlogit’. http://cran.r-project.org/web/packages/mlogit/index.html 
 Fox, J. (1984). Linear statistical models and related methods: With applications to social
 research. New York: Wiley.
 
-[7]Garson, G. D. (2011). “Logistic Regression”, from Statnotes: Topics in Multivariate Analysis.
+[7] Garson, G. D. (2011). “Logistic Regression”, from Statnotes: Topics in Multivariate Analysis.
 http://faculty.chass.ncsu.edu/garson/pa765/statnote.htm.
 
-[8]Hair, J. F., Anderson, R. E., Tatham, R. L., & Black, W. C. (1998). Multivariate Data Analysis
+[8] Hair, J. F., Anderson, R. E., Tatham, R. L., & Black, W. C. (1998). Multivariate Data Analysis
 (5th ed.). Upper Saddle River, NJ: Prentice Hall. 
 
-[9]Mertler, C. & Vannatta, R. (2002). Advanced and multivariate statistical methods (2nd ed.). Los
+[9] Mertler, C. & Vannatta, R. (2002). Advanced and multivariate statistical methods (2nd ed.). Los
 Angeles, CA: Pyrczak Publishing. 
 
-[10]Schwab, J. A. (2002). Multinomial logistic regression: Basic relationships and complete
+[10] Schwab, J. A. (2002). Multinomial logistic regression: Basic relationships and complete
 problems. http://www.utexas.edu/courses/schwab/sw388r7/SolvingProblems/
 
-[11]Tabachnick, B. G. & Fidell, L. S. (2001). Using multivariate statistics (4th ed.). Needleham
+[11] Tabachnick, B. G. & Fidell, L. S. (2001). Using multivariate statistics (4th ed.). Needleham
 Heights, MA: Allyn and Bacon. 
 
 [12] Madhukar, M. (2014). Challenges & Limitation in Recommender Systems. International Journal of Latest Trends in Engineering and Technology (IJLTET), 4(3), 138-142. Retrieved May 01, 2019.
