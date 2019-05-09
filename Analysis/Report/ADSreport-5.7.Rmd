@@ -485,15 +485,18 @@ ggplot(data = test,aes(x= points.diff,y=..density..)) +
 # Assummptions
 # Limitations and Uncertainties
 
-The main limitation comes from the process of text analysis. 
-First, as our dataset is kind of large, in order to simplify programming process and get a quick overview, we creat our own word package in which we select and put the words manully. For example, *fruit*,*acid*,*palat*,*aroma*,*cherri*,*tannin*,*ripe* are the target words describing the feeling of testing wine. It's a manual process which shows limitation to get a thorough exploration of descriptions. We are only able to type in some typical words related to the testers' feeling about wine instead of put every single word into the words package. Besides, it's a manual process which means when there's any change in the dataset, this process may not work at all.
-Second, when building the model, all the words are coming from previous dataset which means we do recommendation based on a limited words package. When there's a new word coming up in the descriptions, we cannot make accurate recommendatioin. 
+Limitations for text analysis:<br>
+First, if we're using each unique word as a predictor to fit the model, the number of predictors will explode really fast. Even though we did data cleaning such as removing unwanted words and symbols, it's not ideal to go over every word.  <br>
 
+Second, we built a linear regression model. Among the words with high frequency, we manully selected some words as the predictors based on the domain knowledge. For example, *fruit*,*cherri*,*plum*,*oak*,*chocol*, are the some common words used for describing the flavors of the wine. Therefore, the result is interpretable since each predictor is a meaningful word realted to the wine. However, since we're focusing on high frequency words,it's hard get a thorough exploration of descriptions. Also, as this a manually process, any change in the dataset will impact the significance of these predictors.<br>
+
+Lastly, when building the model, all the words are coming from previous dataset which means we draw conclusions based on that. When there's a new word coming up in the descriptions, we won't be able to handle that. This is no longer the situation where a new observation brings new values for existing predictors, but the case when a new observation brings new predictors. <br>
 
 # Areas of Future Investigation
+To tackle the limitaions for text analysis in this project, we tried another approach. We first followed the same procedure for text cleaning. After getting the word-document matrix, we used SVD (singluar vector decomposition) to reduce the number of predictors. However, to use SVD, we need to fully trust the math since each column is no longer a word that we can intepret. There were signals missing in the dimension reduction process and we didn't know what those are. Then we built a decison tree model to predict points. However, our model ended up predicting the same point for all the wine, hence we ended up going back to the original method for now. Even so, this is something interesting for us to do future investigation. A plausible step is to investigate on feature engineering. <br>
 
 # References
 [1]Bernard Chen, Valentin V., James P., and Travis A. Wineinformatics: A Quantitative Analysis of Wine Reviewers. <i> Fermentation </i>. 2018 <br>
 [2]Quandt, R.E. A note on a test for the sum of ranksums. <i>J. Wine Econ</i>. 2007, 2, 98-102. <br>
-[3]tf-idf Model for Page Ranking. Retrieved from https://www.geeksforgeeks.org/tf-idf-model-for-page-ranking/.
+[3]tf-idf Model for Page Ranking. Retrieved from https://www.geeksforgeeks.org/tf-idf-model-for-page-ranking/. <br>
 
