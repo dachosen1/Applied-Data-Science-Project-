@@ -19,9 +19,6 @@ Country: The country that the wine is from
 - Variety: The type of grapes used to make the wine (ie Pinot Noir)
 - Winery: The winery that made the wine
 
-### Approach:
-We first plan to do data exploration. We plan to check the quality of description and see if there is any misspelling etc.. Next we plan to do sentiment analysis on the description. Then we will to do a variable selection and build a recommendation system. Finally, we plan to do some data visualizations/dynamic application based on the data and our recommendation results.
-
 
 ## Questions: 
  
