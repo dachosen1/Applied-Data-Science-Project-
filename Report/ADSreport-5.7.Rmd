@@ -246,7 +246,7 @@ datatable(dat[1:5,])
 
 # Examination of the Data
 
-<p> We first checked the missing vlaues in the data and visualize the percentage of that for each varible. **Country, province, region_1 and region_2** are varibales giving geographic information about the wine, since the majority of **region_2** and 16.4% of **region_1** are missing, we choose to focus on **country** unless more detailed geographic information are needed. We also assign the value of the highest level region to the lowest level for the missing components. </p>
+<p> We first checked the percentage of missing vlaues for each varible. **Country, province, region_1 and region_2** are varibales giving geographic information about the wine, since the majority of **region_2** and 16.4% of **region_1** are missing, we choose to focus on **country** unless more detailed geographic information are needed. We also assign the value of the highest level region to the lowest level for the missing components. </p>
 
 We then examined the unique values for each varible. **Designation, winery, title** have many unique values, hence we decided to treat them as random effects but not predictors when modeling.<br>
 
