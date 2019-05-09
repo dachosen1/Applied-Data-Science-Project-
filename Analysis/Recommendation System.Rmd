@@ -49,6 +49,9 @@ test <- data_matrix[-split,]
 
 
 mean(getRatings(data_matrix), na.rm = TRUE)
+
+
+es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
 ```
 
 Calculate a similarity matrix 
@@ -79,6 +82,14 @@ as.data.frame(mapply(c, 'Wine Recommendation' = getList(pred.ubcf),
                      'Wine Rating' = getRatings(pred.ubcf),
                      'Avg Rating' = as.list(rowMeans(train))))
 
+recom.ubcf.2 <- Recommender( data = getData(es, 'train'),
+                             method = 'UBCF')
+
+pred.ubcf.2 <- predict(recom.ubcf.2,newdata = getData(es, 'known'), type = 'ratings')
+
+calcPredictionAccuracy(pred.ubcf.2, data = getData(es, 'unknown'))
+
+
 ```
 
 ## Popular Methods 
@@ -104,16 +115,25 @@ Item-based Collaborative Filtering
 recommenderRegistry$get_entry('IBCF', type = 'realRatingMatrix')
 
 recom.ibcf <- Recommender(train,method='IBCF')
-pred.ibcf <- predict(recom.ubcf,train, n = 1)
+pred.ibcf <- predict(recom.ubcf,train, n = 1, type = 'ratings')
 
 as.data.frame(mapply(c, 'Receommendatoin' = getList(pred.ibcf), 
                      'Wine Rating' = getRatings(pred.ibcf),
                      'Avg Rating' = as.list(rowMeans(train))))
 
+
+calcPredictionAccuracy(pred.ibcf, test)
 ```
 
 
+# Built recommender 
 
+
+```{r}
+
+
+
+```
 
 
 

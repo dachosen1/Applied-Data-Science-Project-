@@ -70,11 +70,19 @@ mean(getRatings(data_matrix), na.rm = TRUE)
 recommenderRegistry$get_entry('UBCF', type = 'realRatingMatrix')
 # recommendation for normal data 
 recom4 <- Recommender(data_matrix,method='UBCF',parameter = list(method = 'Cosine'))
-pred4 <- predict(recom4,data_matrix, type = 'ratingMatrix',n = 5)
+pred4 <- predict(recom4,data_matrix, type = 'ratingMatrix',n = 1)
 
 as.data.frame(mapply(c, getList(pred4), 
                      getRatings(pred4), 
                      as.list(rowMeans(data_matrix, na.rm = TRUE))))
+
+recom.ubcf.2 <- Recommender( data = getData(es, 'train'),
+                             method = 'UBCF')
+
+pred.ubcf.2 <- predict(recom.ubcf.2,newdata = getData(es, 'known'), type = 'ratings')
+
+calcPredictionAccuracy(pred.ubcf.2, data = getData(es, 'unknown'))
+
 ```
 
 Calculatea a similarity matrix 
@@ -89,6 +97,20 @@ round(similarity(normalize(train[1:7]),method = 'cosine'),3)
 
 # similarity matrix using the pearson distance
 round(similarity(normalize(train[1:7]),method = 'pearson'),3)
+```
+
+# Built recommender 
+
+
+```{r}
+es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
+
+recom.ubcf.2 <- Recommender( data = getData(es, 'train'),
+                             method = 'UBCF')
+
+prediction <- predict(recom.ubcf.2, test)
+
+calcPredictionAccuracy(pred.ibcf, data = getData(es, 'unknown'))
 ```
 
 
