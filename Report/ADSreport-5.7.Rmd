@@ -284,18 +284,12 @@ hist(dat[,price],xlab="price", col= "#85C1E9", border="white", main="Histogram o
 hist(dat$points,xlab="points", col= "#85C1E9", border="white", main="Histogram of points")
 ```
 
-```{r}
-# filter data set
-subdat <- dat %>%
- select(variety.name,country.name,points.name,province.name, winery.name,description.name)
 
-head(subdat)
-# count length of 
-subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
-```
 
 # Data Cleaning
 ```{r cleaning}
+
+dat$taster_twitter_handle <- NULL
 
 # evaluate designation as no wine designation 
 dat[is.na(get(designation.name)), eval('designation') := 'No Wine Designation']
@@ -309,7 +303,8 @@ dat[is.na(get(taster.name)), eval('taster_name') := 'Anonymous']
 
 # remove NA price
 dat.row <-nrow(dat)
-dat <- dat[complete.cases(dat$price)]
+
+dat <- dat[complete.cases(dat)]
 paste0( dat.row - nrow(dat), ' rows were removed or ', round((dat.row / nrow(dat)- 1) * 100,2),'%' , 'of the data')
 ```
 
@@ -324,6 +319,14 @@ Second, when customers evaluate a product, their evaluation objects vary. Some p
 From the reason above, *Final Point* is not enough for us to make an accurate conclusion on customers exact evaluation on this type of wine. Thus, we should take a look at *Description* ,which gives us more details.
 In order to analyze this text variable, we first take a look at the words' length. We split every sentence into words and draw a distribution of words' length. We find that it is close to a normal distribution with mean is roughly 45 words per description, which is a good start.
 
+```{r}
+# filter data set
+subdat <- dat[, c('variety','country','points', 'province', 'winery', 'description')]
+
+head(subdat)
+# count length of 
+subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
+```
 
 ```{r distributioin of words length}
 ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill = 'royalblue4') + 
@@ -566,6 +569,11 @@ Lastly, when building the model, all the words are coming from previous dataset 
 To tackle the limitaions for text analysis in this project, we tried another approach. We first followed the same procedure for text cleaning. After getting the word-document matrix, we used SVD (singluar vector decomposition) to reduce the number of predictors. However, to use SVD, we need to fully trust the math since each column is no longer a word that we can intepret. There were signals missing in the dimension reduction process and we didn't know what those are. Then we built a decison tree model to predict points. However, our model ended up predicting the same point for all the wine, hence we ended up going back to the original method for now. Even so, this is something interesting for us to do future investigation. A plausible step is to investigate on feature engineering. <br>
 
 #3. Recommendation System
+
+```{r}
+dat.recom <- dat[, mean(get(points.name)), by = .(get(taster.name), get(variety.name))]
+setnames(dat.recom, old = c('get','get.1','V1'), new = c('Taster Name','Variety','Point'))
+```
 
 ```{r real rating class}
 # convert into a s4 class 
