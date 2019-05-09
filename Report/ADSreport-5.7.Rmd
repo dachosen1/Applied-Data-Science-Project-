@@ -268,7 +268,7 @@ barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1,
         col=rainbow(13),border="white")
 
 text(x = -0.5 + 1.02*1:tab2[, .N], y = -15, labels = tab2$var,srt = 45)
-space_val=0
+space_val = 0 
 
 text(x=-0.4+1:length(tab)*(1+space_val),y=tab,labels=sprintf("%.1f%%",tab),pos=3)
 
@@ -282,6 +282,16 @@ hist(dat[,price],xlab="price", col= "#85C1E9", border="white", main="Histogram o
 
 #points plot
 hist(dat$points,xlab="points", col= "#85C1E9", border="white", main="Histogram of points")
+```
+
+```{r}
+# filter data set
+subdat <- dat %>%
+ select(variety.name,country.name,points.name,province.name, winery.name,description.name)
+
+head(subdat)
+# count length of 
+subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
 ```
 
 # Data Cleaning
@@ -298,8 +308,9 @@ dat[is.na(get(region_2.name)), eval('region_2') := get(region_1.name)]
 dat[is.na(get(taster.name)), eval('taster_name') := 'Anonymous']
 
 # remove NA price
-dat <- dat[complete.cases(dat)]
-paste0( nrow(dat) - nrow(dat.final), ' rows were removed or ', round((nrow(dat) / nrow(dat.final) - 1) * 100,2),'%' , 'of the data')
+dat.row <-nrow(dat)
+dat <- dat[complete.cases(dat$price)]
+paste0( dat.row - nrow(dat), ' rows were removed or ', round((dat.row / nrow(dat)- 1) * 100,2),'%' , 'of the data')
 ```
 
 
@@ -313,15 +324,6 @@ Second, when customers evaluate a product, their evaluation objects vary. Some p
 From the reason above, *Final Point* is not enough for us to make an accurate conclusion on customers exact evaluation on this type of wine. Thus, we should take a look at *Description* ,which gives us more details.
 In order to analyze this text variable, we first take a look at the words' length. We split every sentence into words and draw a distribution of words' length. We find that it is close to a normal distribution with mean is roughly 45 words per description, which is a good start.
 
-```{r}
-# filter data set
-subdat <- dat %>%
- select(variety.name,country.name,points.name,province.name, winery.name,description.name)
-
-head(subdat)
-# count length of 
-subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
-```
 
 ```{r distributioin of words length}
 ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill = 'royalblue4') + 
@@ -338,6 +340,8 @@ To give a accurate evaluation, we start from estimating sentiment behind descrip
 The result kind of shows discrepancy. As we mention above, we shift data with points above 80, which is a relatively higher score with scale from 0 to 100. We didn't expect negative description that much. In order to have a more realistic understanding of the result, we create a new scale which is from 80 to 100 and we assume points above 90 is "positive" points while points below 90 is "negative" points.Thus, we make a prediction the distribution of new-scaled points is consistent with the description of negative and positive. However, from what we get we conclude that the prediction is not correct, which indicates that although the final point is positive, we still have negative desription. Thus, it's necessary to analyze description with more specific classification which is text analysis.
 
 ```{r sentiment analysis}
+
+# subdat includes all values with description
 subdat %>%
 unnest_tokens(output = word, input = description) %>%
 inner_join(get_sentiments('bing')) %>%
@@ -481,7 +485,7 @@ TF-IDF is a powerful technique for enhancing the information contained within ou
 
 - Penalize terms occur frequency across corpus and inverse document frequency (IDF) 
 
-```{r TF-IDF error=recover}
+```{r TF-IDF}
 var.chosen<-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh',
               'berri','oak','plum','textur','sweet','appl','full','blend','balanc','bodi','blackberri',
               'light','soft','age','structur','white','crisp','fruiti','citrus','dark','miner','herb',
