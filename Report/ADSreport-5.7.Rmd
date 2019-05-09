@@ -578,7 +578,6 @@ setnames(dat.recom, old = c('get','get.1','V1'), new = c('Taster Name','Variety'
 ```{r real rating class}
 # convert into a s4 class 
 data_matrix <- as(dat, 'realRatingMatrix')
-image(data_matrix[1:19,1:50])
 ```
 
 ```{r train and test split}
@@ -589,7 +588,7 @@ test <- data_matrix[-split,]
 
 mean(getRatings(data_matrix), na.rm = TRUE)
 
-es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
+es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 1)
 ```
 
 ### **Calculate a similarity matrix**
