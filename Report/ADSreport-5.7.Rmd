@@ -28,7 +28,7 @@ library(recommenderlab)
 ```
 
 ```{r read data, echo=FALSE,warning=FALSE}
-dat <- fread(input = "wines.csv",verbose = FALSE,na.strings=c(""))
+dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
 dat=dat[,-1]
 ```
 
@@ -142,6 +142,16 @@ text.prep=function(dat,var.name){
   dat.token=tokens_wordstem(dat.token,language = "english")
   return(dat.token)
 }
+
+linear.regression.summary <- function(lm.mod, digits = 3, alpha = 0.05) {
+lm.coefs <- as.data.table(summary(lm.mod)$coefficients,
+keep.rownames = TRUE)
+setnames(x = lm.coefs, old = "rn", new = "Variable")
+z <- qnorm(p = 1 - alpha/2, mean = 0, sd = 1)
+lm.coefs[, Coef.Lower.95 := Estimate - z * `Std. Error`]
+lm.coefs[, Coef.Upper.95 := Estimate + z * `Std. Error`]
+return(lm.coefs[])
+}
 ```
 
 
@@ -151,23 +161,37 @@ points.name="points"
 points.group.name="points.group"
 
 country.name <- "country"
-description.name <- "description"           
-designation.name <- "designation"           
-points.name <- "points"               
-price.name <- "price"                 
-province.name <- "province"              
-region_1.name <- "region_1"              
-region_2.name <- "region_2"             
-taster.name <- "taster_name"           
+description.name <- "description"
+designation.name <- "designation"
+points.name <- "points"
+price.name <- "price"
+province.name <- "province"
+region_1.name <- "region_1"
+region_2.name <- "region_2"
+taster.name <- "taster_name"
 twitter.name <- "taster_twitter_handle" 
-title.name <- "title"                 
-variaty.name <- "variety"              
-winery.name <- "winery"               
+title.name <- "title"
+variety.name <- "variety"
+winery.name <- "winery"
 
 dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
 dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
 
 single.var <- c(points.name, price.name, country.name)
+
+price.category.range <- c(4,10,15,20,30,50,100,200)
+price.category.name <- c('Value','Value Premium','Premium','Super Premium','Ultra Premium',
+                         'Luxury','Super Luxury','Icon')
+
+# Calculating unique values in the dataset
+unique.designation <- length(unique(dat$designation))
+unique.province <- length(unique(dat$province))
+unique.variety <- length(unique(dat$variety))
+
+designation.min <- 50
+variety.min <- 200
+province.min <- 500
+
 ```
 
 # Introduction
@@ -217,33 +241,60 @@ datatable(dat[1:5,])
 
 # Examination of the Data
 
-<p>We first checked the missing vlaues in the data and visualize the percentage of that for each varible. **Country, province, region_1 and region_2** are varibales giving geographic information about the wine, since the majority of **region_2** and 16.4% of **region_1** are missing, we choose to focus on **country** unless more detailed geographic information are needed.</p>
+<p> We first checked the missing vlaues in the data and visualize the percentage of that for each varible. **Country, province, region_1 and region_2** are varibales giving geographic information about the wine, since the majority of **region_2** and 16.4% of **region_1** are missing, we choose to focus on **country** unless more detailed geographic information are needed. We also assign the value of the highest level region to the lowest level for the missing components. </p>
 
 We then examined the unique values for each varible. **Designation, winery, title** have many unique values, hence we decided to treat them as random effects but not predictors when modeling.<br>
 
-**Price** of the wine ranges from 4 to 3300 with some extreme values. We then visualized **price** in the report enginee and recommended a way to define price range (<10, 10~30, 30~50, 50~200, 200~500, >500)
+**Price** of the wine ranges from 4 to 3300 with some extreme values. We then visualized **price** removed all the variable that were NA. 
 
 Variable **points** ranges from 80 to 100. Its distribution was close to a bell shape. <br>
 
-**Description, taster_name** and **taster_twitter_handle** provides information about the taster and their reviews on the wine. We examined these variables later based on the needs for text anlysis and recommendation systems building.
+**Description, taster_name** and **taster_twitter_handle** provides information about the taster and their reviews on the wine. We examined these variables later based on the needs for text anlysis and recommendation systems building. We also assumed tha the the missing values for taster name were submitted anomymously. Those value have been altered to reflect anomymous. 
+
+**Designation ** We reseached wine designation to further understand Wine Designation and according to Napa Valley Vinters: Vineyard Designations Optional. Many wineries name the vineyard where the grapes were grown because the winery believes the property produces an unusually high-quality grape. The winery or an independent grower may own the vineyard. When using a vineyard designation on a wine label, federal regulations require that 95% of the grapes be grown in the named vineyard.
 
 ```{r percentage missing}
-tab <- dat[,lapply(X=.SD,FUN="miss.value"),.SD=names(dat)[-1]]
+tab  <- dat[,lapply(X=.SD,FUN="miss.value"),.SD=names(dat)[-1]]
 tab2 <- data.table(var=names(dat[,-1]),miss=as.numeric(tab))
+
 # create a plot of all the missing rate 
-barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1, main="Percentage of Missing Value",ylab="Percentage", ylim=c(0,80),col=rainbow(13),border="white")
+barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1, 
+        main="Percentage of Missing Value",ylab="Percentage", ylim=c(0,80),
+        col=rainbow(13),border="white")
+
 text(x = -0.5 + 1.02*1:tab2[, .N], y = -15, labels = tab2$var,srt = 45)
 space_val=0
+
 text(x=-0.4+1:length(tab)*(1+space_val),y=tab,labels=sprintf("%.1f%%",tab),pos=3)
 
 #number of unique values for each variable
 unitab=dat[,lapply(.SD,FUN="get.unique")]
 datatable(unitab)
+
 #range of price
 summary(dat$price)
 hist(dat[,price],xlab="price", col= "#85C1E9", border="white", main="Histogram of price")
+
 #points plot
 hist(dat$points,xlab="points", col= "#85C1E9", border="white", main="Histogram of points")
+```
+
+# Data Cleaning
+```{r cleaning}
+
+# evaluate designation as no wine designation 
+dat[is.na(get(designation.name)), eval('designation') := 'No Wine Designation']
+
+# Evalaluate missing province 
+dat[is.na(get(region_1.name)), eval('region_1') := get(province.name)]
+dat[is.na(get(region_2.name)), eval('region_2') := get(region_1.name)]
+
+# taster name changed to anonymous 
+dat[is.na(get(taster.name)), eval('taster_name') := 'Anonymous']
+
+# remove NA price
+dat <- dat[complete.cases(dat)]
+paste0( nrow(dat) - nrow(dat.final), ' rows were removed or ', round((nrow(dat) / nrow(dat.final) - 1) * 100,2),'%' , 'of the data')
 ```
 
 
@@ -257,6 +308,16 @@ Second, when customers evaluate a product, their evaluation objects vary. Some p
 From the reason above, *Final Point* is not enough for us to make an accurate conclusion on customers exact evaluation on this type of wine. Thus, we should take a look at *Description* ,which gives us more details.
 In order to analyze this text variable, we first take a look at the words' length. We split every sentence into words and draw a distribution of words' length. We find that it is close to a normal distribution with mean is roughly 45 words per description, which is a good start.
 
+```{r}
+# filter data set
+subdat <- dat %>%
+ select(variety.name,country.name,points.name,province.name, winery.name,description.name)
+
+head(subdat)
+# count length of 
+subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+')
+```
+
 ```{r distributioin of words length}
 ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill = 'royalblue4') + 
  theme_classic() +
@@ -267,8 +328,8 @@ ggplot(data = subdat, aes(x = descriptioncount)) + geom_histogram(bins=30, fill 
  ylim(0,25000) 
 ```
 
-To give a accurate evaluation, we start from estimating sentiment behind descriptioin, which is sentiment analysis.
-There's a default classification criteria of "negative" and "positive", which helps us to roughly divide description into two categories. From the result,we get more positive descriptions than negative one which kind of makes sense because we just use data with points from 80 to 100. There, the proportion of positive description is 79% and that of negative description is roughly 21%.
+To give a accurate evaluation, we start from estimating sentiment behind descriptioin, which is sentiment analysis. There's a default classification criteria of "negative" and "positive", which helps us to roughly divide description into two categories. From the result,we get more positive descriptions than negative one which kind of makes sense because we just use data with points from 80 to 100. There, the proportion of positive description is 79% and that of negative description is roughly 21%.
+
 The result kind of shows discrepancy. As we mention above, we shift data with points above 80, which is a relatively higher score with scale from 0 to 100. We didn't expect negative description that much. In order to have a more realistic understanding of the result, we create a new scale which is from 80 to 100 and we assume points above 90 is "positive" points while points below 90 is "negative" points.Thus, we make a prediction the distribution of new-scaled points is consistent with the description of negative and positive. However, from what we get we conclude that the prediction is not correct, which indicates that although the final point is positive, we still have negative desription. Thus, it's necessary to analyze description with more specific classification which is text analysis.
 
 ```{r sentiment analysis}
@@ -289,7 +350,9 @@ ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() +
 
 There are two main factors which influence the quality of a type of wine, one is natural cause and one is man-made cause. The country of origin is the important component in natural cause. Thus, we want to specify if wines from different countries will have different descriptions from testers. With the sentiment perspective, it will be shown as the difference in the distribution of negative and positive sentiment in description.
 Then, we draw a graph of sentiment distribution to see the difference among wines from different counties. As some countries’ wine do not have sufficient recorded review, we just show countries with large amount of data. 
+
 From the result, we can tell that there exists difference among countries. Meanwhile, wines that from most of the famous places like, France, South Africa have the larger proportion of positive description which is consistent with our intuition.
+
 
 ```{r }
 data1 <- subdat[,length(get(description.name)),by=country.name]
@@ -376,7 +439,7 @@ ggplot(textdat,aes(x=textlen,fill=points.group))+
   geom_histogram(binwidth = 5,stat="count")
 ```
 
-##2.2 Data Pipeline
+##2. Data Pipeline
 
 Before analysis on text data, we did some preparation. 
   
@@ -413,7 +476,7 @@ TF-IDF is a powerful technique for enhancing the information contained within ou
 
 - Penalize terms occur frequency across corpus and inverse document frequency (IDF) 
 
-```{r TF-IDF}
+```{r TF-IDF error=recover}
 var.chosen<-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh','berri','oak','plum','textur','sweet','appl','full','blend','balanc','bodi','blackberri','light','soft','age','structur','white','crisp','fruiti','citrus','dark','miner','herb','Cabernet','raspberri','vanilla','bright','pepper','firm','green','lemon','juici','peach','concentr','pear','chocol','currant','Pinot','smooth','spici','wood','lime','intens','tart','tannic','tight','herbal','orang')
 
 # Transform to a matrix and inspect.
@@ -478,13 +541,6 @@ ggplot(data = test,aes(x= points.diff,y=..density..)) +
 ```
 
 
-#3. Recommendation System
-
-# The Results
-# Interpretation
-# Assummptions
-# Limitations and Uncertainties
-
 Limitations for text analysis:<br>
 First, if we're using each unique word as a predictor to fit the model, the number of predictors will explode really fast. Even though we did data cleaning such as removing unwanted words and symbols, it's not ideal to go over every word.  <br>
 
@@ -495,8 +551,264 @@ Lastly, when building the model, all the words are coming from previous dataset 
 # Areas of Future Investigation
 To tackle the limitaions for text analysis in this project, we tried another approach. We first followed the same procedure for text cleaning. After getting the word-document matrix, we used SVD (singluar vector decomposition) to reduce the number of predictors. However, to use SVD, we need to fully trust the math since each column is no longer a word that we can intepret. There were signals missing in the dimension reduction process and we didn't know what those are. Then we built a decison tree model to predict points. However, our model ended up predicting the same point for all the wine, hence we ended up going back to the original method for now. Even so, this is something interesting for us to do future investigation. A plausible step is to investigate on feature engineering. <br>
 
+#3. Recommendation System
+
+
+#4. Factors that influence Price
+
+For this analysis, we are going to analyze the factor that impact prices from business owners perspectives. This analysis can be used to determine the types of wine, winery to build, where to dedicate resources to build a winery, and given that the business owner wants to target a specific market segment. 
+
+
+### Test the correlation between the variables
+
+To understand the factors that impact price. Prior to building the regression model, we wanted to understand the correlation among the variables, and we discovered that **`r winery.name`** & **`r title.name`**, and **`r region_1.name`** and **`r region_2.name`** are highly correlated. We removed `r region_2.name` and `r winery.name`, the assumption is that their impact would be captured by `r winery.name` and `r region_1.name`. 
+
+
+```{r}
+library(corrplot)
+data.numeric <- dat
+
+data.numeric$country <- as.numeric(as.factor(data.numeric$country))
+data.numeric$designation <- as.numeric(as.factor(data.numeric$designation))
+data.numeric$province <- as.numeric(as.factor(data.numeric$province))
+data.numeric$region_1 <- as.numeric(as.factor(data.numeric$region_1))
+data.numeric$region_2 <- as.numeric(as.factor(data.numeric$region_2))
+data.numeric$taster_name <- as.numeric(as.factor(data.numeric$taster_name))
+data.numeric$title <- as.numeric(as.factor(data.numeric$title))
+data.numeric$variety <- as.numeric(as.factor(data.numeric$variety))
+data.numeric$winery <- as.numeric(as.factor(data.numeric$winery))
+
+correlation.value <- cor(data.numeric)
+corrplot(correlation.value, method = 'square',type = 'lower',diag = F)
+```
+
+We built a linear regression model that analyzes the factors that impact price using `r country.name`, `r designation.name`, `r points.name`, `r province.name`, `r region_1.name`, `r taster.name`, `r variety.name`, and `r winery.name`. The analysis that the variables that impact price are `r designation.name`, `r province.name`, `r points.name`, `r region_1.name`, and `r variety.name`. It’s also important to note that the reviewers rating isn’t significant. Given that `r price.name` and `r points.name` have a moderate correlation, it would indicate that the reviewers are unbiased in their review. However, interpreting the variables presents a number of challenges: 
+
+There are 7 categorical values in the dataset, and it becomes difficult to interpret the beta variables. The model is indicating that an increase in the `r designation.name` decreases the estimate. There are a number of ways to address including convert the character variables into factors, however, `r designation.name` has `r unique.designation` levels. 
+
+The linear regression model is predicting a continuously variable output, for this audience, a small difference in price isn’t meaningful to analyze, i.e. the difference between a wine priced at 10.50 vs 11.00.  We want to be able to capture a larger differences in price. 
+
+```{r}
+# drop correlated values 
+data.numeric2 <- data.numeric
+data.numeric2$title <- NULL
+data.numeric2$region_2 <- NULL
+
+# Fit linear Model 
+lm.model <- lm(price ~., data = data.numeric2)
+lm.model.summary <- linear.regression.summary(lm.model)[,c(1,2,5:7)]
+lm.model.summary[,2:5] <- round(lm.model.summary[,2:5],3)
+datatable(lm.model.summary)
+
+```
+
+For the next phase of the analysis, we want to capture significant differences in the model and interpret the categorical variables. According to Wine Folly, there are 8 categories of wine: 
+
+| Segment Name    | Price ($USD)  |Description                                                          |
+| :-            | :-            | :----                                                                 |
+| Extreme Value   | Less than 4   | Bulk wine                                                           |
+| Value           | 4 - 10        | Basic quality bulk wines from large regions and producers           |
+| Popular Premium | 10 - 15       | Large production, decent varietal wines, and blends                 |
+| Premium         | 14 - 20       | Good, solid quality wines                                           |
+| Super Premium   | 20 - 30       | Great, handmade wines from medium-large production wineries         |
+| Ultra Premium   | 30 - 50       | Great quality, handmade, excellent-tasting wines                    |
+| Luxury          | 50 - 100      | Excellent wines from wine regions made by near-top producers        |
+| Super Luxury    | 100 - 200     | Wines from top producers from microsites                            |
+| Icon            | 200+          | The pinnacle of wines, wineries, and microsites                     |
+
+
+```{r }
+dat$price <- cut2(x = dat$price,cuts = price.category.range, price.category.name)
+levels(dat$price) <- price.category.name
+price.count <- dat[,.(count = .N), by = price.name]
+
+ggplot(data = price.count, aes(x = price, y = count)) + 
+  geom_bar(stat = 'identity', fill = 'lightblue') + theme_classic() + 
+  ggtitle('Price Category Distribution') + theme(legend.position = "bottom",
+              text = element_text(size=15),
+              axis.text.x = element_text(angle=0),
+              plot.title = element_text(hjust = 0.5)) + xlab('Pricing Segment') + ylab('Count')
+
+```
+
+A deeper dive into the categorical variables reveals that a significant portion of the categorical variables have very few observations. Lack of sufficient variables greatly impacts the strength of analysis and conclusion. In the next section, we are going to filter variables with insufficient variables. 
+
+How many unique variables are in `r designation.name`, `r province.name`, and `r variety.name`? 
+
+```{r}
+
+paste0('There are ', length(unique(dat$designation)), ' unique observation values in the dataset')
+paste0('There are ', length(unique(dat$province)), ' unique province values in the dataset')
+paste0('There are ', length(unique(dat$variety)), ' unique variety values in the dataset')
+
+```
+
+Given that we now have 8 dependent variables, a linear or logistic regression isn’t the best model to determine the factors that influence. After researching this problem, the best models that can address this situation are Multinomial regression and ordinal logit model.
+
+**Ordinal Logistic Regression**
+
+Ordinal logistic regression or (ordinal regression) is used to predict an ordinal dependent variable given one or more independent variables. Ordinal regression will enable us to determine which of our independent variables (if any) have a statistically significant effect on our dependent variable. For categorical independent variables, we can interpret the odds that one “group” have a higher or lower score on our dependent variable. For continuous independent variables, we are able to interpret how a single unit increase or decrease in that variable, is associated with the odds of our dependent variable having a higher or lower value We can also determine how well our ordinal regression model predicts the dependent variable.
+
+Ordinal regression can only be performed under these 4 conditions: 
+
+- The dependent variable is measured on an ordinal level: Yes, the dependent variables range from value to Icon.  Value is considered as a cheaper option and Icon is the most expensive 
+- One or more of the independent variables are either continuous, categorical or ordinal: The idenpendent variables are categorical and continuous
+
+- No Multi-collinearity - i.e. when two or more independent variables are highly correlated with each other: Yes, We have removed all the variables that are highly correlated with each other. 
+ - Proportional Odds - i.e. that each independent variable has an identical effect at each cumulative split of the ordinal dependent variable. Yes, the price is measured in the same currency and has the dependent on the quality of the wine 
+
+**Multinomial logistic regression**
+
+Multinomial logistic regression is used to model nominal outcome variables, in which the log odds of the outcomes are modeled as a linear combination of the predictor variables. Below we use the multinom function from the nnet package to estimate a multinomial logistic regression model. There are other functions in other R packages capable of multinomial regression. We chose the multinom function because it does not require the data to be reshaped (as the mlogit package does) and to mirror the example code found in Hilbe’s Logistic Regression Models. The multinom package does not include p-value calculation for the regression coefficients, so we calculate p-values using Wald tests (here z-tests).
+
+The ratio of the probability of choosing one outcome category over the probability of choosing the baseline category is often referred as relative risk (and it is sometimes referred to as odds, described in the regression parameters above). The relative risk is the right-hand side linear equation exponentiated, leading to the fact that the exponentiated regression coefficients are relative risk ratios for a unit change in the predictor variable. We can exponentiate the coefficients from our model to see these risk ratios.
+
+*Note:* we did not calculate the associated p value for the MLR. the formula to calculate it is: `z <- summary(model)$coefficients/summary(model)$standard.errors` followed by `p <- (1 - pnorm(abs(z), 0, 1)) * 2`.This calculation is computationally expensive, and we ran it several time without any success. We will assume that the variables have a significant p value. 
+
+#### Analyzing Province Impact
+
+```{r echo = TRUE, results = 'hide'}
+dat.notable.provice.count <- dat[, .N, by = province.name][N > province.min]
+dat.notable.provice <- dat[get(province.name) %in% dat.notable.provice.count$province]
+multinom.model.province <- nnet::multinom(formula = price ~ province, data = dat.notable.provice)
+```
+
+The model summary output has a the odds ratio of each province and their respective price segment. It can be interpreted as the odd ratio of finding wine in price segment in a province compared to the baseline. For example: Alasce provice has a 7x higher odds ratio of finding a wine in the value premium and Alasce vs the base Price Segmnent and province.   
+
+```{r multinom model province}
+multinom.model.province.coef <- round(data.frame(exp(coef(multinom.model.province)),2))
+datatable(multinom.model.province.coef)
+```
+
+```{r include=FALSE}
+library(foreign)
+library(MASS)
+library(reshape2)
+library(Hmisc)
+```
+
+```{r}
+# olr model for provice 
+olr.model.province <- polr(price ~ points + province, data = dat.notable.provice, Hess = TRUE)
+
+# store table
+ctable.province <- coef(summary(olr.model.province))
+
+# calculate and store p values
+p.province <- round(pnorm(abs(ctable.province[, "t value"]), lower.tail = FALSE) * 2,5)
+
+# combined table
+ctable.province <- cbind(ctable.province, "p value" = p.province)
+
+odd.ratio.province <- round(exp(ctable.province[,'Value']),3)
+ctable.province <- cbind(ctable.province, 'Odds Ratio' = odd.ratio.province)
+
+datatable(round(ctable.province,3))
+```
+
+Here we can examine the odd.ratio and the impact of the province on the dependent variables. The province that have the highest odd.ratio of producing a higher price are Burgundy, Champagne and Piedmont each with a odd ratio 21.362, 57.872 and 17.861, respectively. 
+
+Also note that increase in points also increase the probability of being able to charge a higher price by 50% 
+
+Using the combination of these models, provides a more comprehensive review of the impact that province has on price. 
+
+The same models are repeated for `r designation.name` and `r variety.name`, and can be interepreted the same way. 
+
+### Analyzing Designation impact 
+
+```{r echo = TRUE, results = 'hide'}
+dat.designation.count <- dat[,.N, by = designation.name][N >designation.min]
+dat.designation <- dat[get(designation.name) %in% dat.designation.count$designation]
+multinom.model.designation <- nnet::multinom(formula = price ~ designation, data = dat.designation)
+```
+
+```{r multinom model designation}
+multinom.model.designation.coef <- round(data.frame(exp(coef(multinom.model.designation)),2))
+datatable(multinom.model.designation.coef)
+```
+
+```{r}
+# olr model for provice 
+olr.model.designation <- polr(price ~ designation, data = dat.designation, Hess = TRUE)
+
+# store table
+ctable.designation <- coef(summary(olr.model.designation))
+
+# calculate and store p values
+p.designation <- round(pnorm(abs(ctable.designation[, "t value"]), lower.tail = FALSE) * 2,5)
+
+# combined table
+ctable.designation <- cbind(ctable.designation, "p value" = p.designation)
+odd.ratio.designation <- round(exp(ctable.designation[,'Value']),3)
+ctable.designation <- cbind(ctable.designation, 'Odds Ratio' = odd.ratio.designation)
+ctable.designation <-data.frame(ctable.designation)
+
+datatable(round(ctable.designation,3))
+```
+
+### Analyzing variety impact 
+
+```{r echo = TRUE, results = 'hide'}
+# variety  
+dat.variety.count <- dat[,.N, by = variety.name][N >variety.min]
+dat.variety <- dat[get(variety.name) %in% dat.variety.count$variety]
+multinom.model.variety <- nnet::multinom(formula = price ~ variety, data = dat.variety)
+```
+
+```{r multinom model variety}
+multinom.model.variety.coef <- round(data.frame(coef(multinom.model.variety)),2)
+datatable(multinom.model.variety.coef)
+```
+
+```{r}
+# olr model for provice 
+olr.model.variety <- polr(price ~ variety, data = dat.variety, Hess = TRUE)
+
+# store table
+ctable.variety <- coef(summary(olr.model.variety))
+
+# calculate and store p values
+p.variety <- round(pnorm(abs(ctable.variety[, "t value"]), lower.tail = FALSE) * 2,5)
+
+# combined table
+ctable.variety <- cbind(ctable.variety, "p value" = p.variety)
+odd.ratio.variety <- round(exp(ctable.variety[,'Value']),3)
+ctable.variety <- cbind(ctable.variety, 'Odds Ratio' = odd.ratio.variety)
+
+datatable(round(data.frame(ctable.variety),3))
+```
+ 
+We Analyzed the factors that impact price. In the introduction, we stated that the reader can use this analysis to determine where to place winery and what type of wine to select given that they are targetting a specific price range. The analysis provides the location with the highest or lowest odds based on the availability. The next question that the user needs to determine is should they build where there are numerous competitors or an area with fewer competition. 
+
+
 # References
 [1]Bernard Chen, Valentin V., James P., and Travis A. Wineinformatics: A Quantitative Analysis of Wine Reviewers. <i> Fermentation </i>. 2018 <br>
+
 [2]Quandt, R.E. A note on a test for the sum of ranksums. <i>J. Wine Econ</i>. 2007, 2, 98-102. <br>
+
 [3]tf-idf Model for Page Ranking. Retrieved from https://www.geeksforgeeks.org/tf-idf-model-for-page-ranking/. <br>
+
+[4] Napa Valley Vintners. (n.d.). How to Read a Wine Label Infographic. Retrieved May 05, 2019, from https://napavintners.com/wines/how_to_read_a_wine_label.asp
+
+[5]Aldrich, J. H., & Nelson, F. D. (1984). Linear probability, logit, and probit models. Thousand
+Oaks, CA: Sage. 
+
+[6]Croissant, Y. (2011). Package ‘mlogit’. http://cran.r-project.org/web/packages/mlogit/index.html 
+Fox, J. (1984). Linear statistical models and related methods: With applications to social
+research. New York: Wiley.
+
+[7]Garson, G. D. (2011). “Logistic Regression”, from Statnotes: Topics in Multivariate Analysis.
+http://faculty.chass.ncsu.edu/garson/pa765/statnote.htm.
+
+[8]Hair, J. F., Anderson, R. E., Tatham, R. L., & Black, W. C. (1998). Multivariate Data Analysis
+(5th ed.). Upper Saddle River, NJ: Prentice Hall. 
+
+[9]Mertler, C. & Vannatta, R. (2002). Advanced and multivariate statistical methods (2nd ed.). Los
+Angeles, CA: Pyrczak Publishing. 
+
+[10]Schwab, J. A. (2002). Multinomial logistic regression: Basic relationships and complete
+problems. http://www.utexas.edu/courses/schwab/sw388r7/SolvingProblems/
+
+[11]Tabachnick, B. G. & Fidell, L. S. (2001). Using multivariate statistics (4th ed.). Needleham
+Heights, MA: Allyn and Bacon. 
 
