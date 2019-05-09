@@ -2,7 +2,7 @@
 title: "Applied Data Science Finace Project: Analysis on Wine Reviews"
 output:
   prettydoc::html_pretty:
-    theme: cayman
+    theme: leonids
     highlight: github
 ---
 ```{r setup, include=FALSE}
