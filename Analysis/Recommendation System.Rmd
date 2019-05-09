@@ -31,8 +31,8 @@ variety.name <- "variety"
 
 dat <- dat[, mean(get(points.name)), by = .(get(taster.name), get(variety.name))]
 setnames(dat, old = c('get','get.1','V1'), new = c('Taster Name','Variety','Point'))
-
 ```
+
 
 ```{r real rating class}
 # convert into a s4 class 
@@ -54,7 +54,9 @@ mean(getRatings(data_matrix), na.rm = TRUE)
 es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
 ```
 
-Calculate a similarity matrix 
+### **Calculate a similarity matrix**
+
+The similarity matrix allows you to understand how similar users are to each other. We are going to show the top 7. 
 
 ```{r similarity matrix}
 
@@ -65,11 +67,14 @@ round(similarity(normalize(train[1:7]),method = 'euclidean'),3)
 round(similarity(normalize(train[1:7]),method = 'cosine'),3)
 
 # similarity matrix using the pearson distance
-round(similarity(normalize(train[1:7]),method = 'pearson'),3)
+
+similarity.matrix <- round(similarity(normalize(train[1:7]),method = 'pearson'),3)
 ```
 
 
-# User Based Collaborative Filter: 
+### **User Based Collaborative Filter** 
+
+Here, we try to search for lookalike tasters and offer wines based on what tasters with simiar taste profile has. This algorithm is very effective but takes a lot of time and resources. This type of filtering requires computing every customer pair information which takes time. So, for big base platforms, this algorithm is hard to put in place.
 
 
 ```{r UBCF}
@@ -78,9 +83,9 @@ recommenderRegistry$get_entry('UBCF', type = 'realRatingMatrix')
 recom.ubcf <- Recommender(train,method='UBCF',parameter = list(method = 'Cosine'))
 pred.ubcf <- predict(recom.ubcf,train,n = 1)
 
-as.data.frame(mapply(c, 'Wine Recommendation' = getList(pred.ubcf), 
+datatable(data.frame(mapply(c, 'Wine Recommendation' = getList(pred.ubcf), 
                      'Wine Rating' = getRatings(pred.ubcf),
-                     'Avg Rating' = as.list(rowMeans(train))))
+                     'Avg Rating' = as.list(rowMeans(train)))))
 
 recom.ubcf.2 <- Recommender( data = getData(es, 'train'),
                              method = 'UBCF')
@@ -89,10 +94,11 @@ pred.ubcf.2 <- predict(recom.ubcf.2,newdata = getData(es, 'known'), type = 'rati
 
 calcPredictionAccuracy(pred.ubcf.2, data = getData(es, 'unknown'))
 
-
 ```
 
-## Popular Methods 
+### **Popular Methods** 
+
+The Popular method is one of the oldest approaches to recommendations involves recommmending the most popular item. Although less widely used today, we still see this in the form of Top 50 Music Hits, Billboard Top Hits, and New York Times Bestsellers. The underlying assumption is that if most people like a wine, a book or a song, you will like it too.
 
 ```{r Popular Method}
 recommenderRegistry$get_entry("POPULAR", type ="realRatingMatrix")
@@ -102,38 +108,57 @@ recom.popular <- Recommender(train,method='POPULAR')
 pred.popular <- predict(recom.popular,data_matrix, n = 1)
 
 # top recommendation 
+datatable(
 data.frame(mapply(c, 'Wine Recommendation' = getList(pred.popular), 
                   'Wine Rating' = getRatings(pred.popular),
-                     'Avg Rating' = as.list(rowMeans(train))))
+                     'Avg Rating' = as.list(rowMeans(train)))))
+
+recom.popular.2 <- Recommender( data = getData(es, 'train'),
+                             method = 'POPULAR')
+
+pred.popular.2 <- predict(recom.popular.2,newdata = getData(es, 'known'), type = 'ratings')
+
+calcPredictionAccuracy(pred.popular.2, data = getData(es, 'unknown'))
 
 ```
+ 
+### **Item Collaborative filtering** 
 
-Item-based Collaborative Filtering
+It is very similar to the previous algorithm, but instead of finding a tasters look alike, we try finding wine look alike. Once we have wine look alike matrix, we can easily recommend alike wine to a customer who has reviewed any wine the store. This algorithm requires far fewer resources than user-user collaborative filtering. Hence, for new tasters or customer, the algorithm takes far lesser time than user collaborate as we don’t need all similarity scores between customers. Amazon uses this approach in its recommendation engine to show related products which boost sales.
+
 
 ```{r}
 
 recommenderRegistry$get_entry('IBCF', type = 'realRatingMatrix')
 
 recom.ibcf <- Recommender(train,method='IBCF')
-pred.ibcf <- predict(recom.ubcf,train, n = 1, type = 'ratings')
+pred.ibcf <- predict(recom.ubcf,train, n = 1, type = 'topNList')
 
-as.data.frame(mapply(c, 'Receommendatoin' = getList(pred.ibcf), 
+datatable(
+data.frame(mapply(c, 'Receommendatoin' = getList(pred.ibcf), 
                      'Wine Rating' = getRatings(pred.ibcf),
                      'Avg Rating' = as.list(rowMeans(train))))
+)
 
+recom.ibcf.2 <- Recommender( data = getData(es, 'train'),
+                             method = 'IBCF')
 
-calcPredictionAccuracy(pred.ibcf, test)
+pred.ibcf.2 <- predict(recom.ibcf.2,newdata = getData(es, 'known'), type = 'ratings')
+
+calcPredictionAccuracy(pred.ibcf.2, data = getData(es, 'unknown'))
 ```
 
 
-# Built recommender 
+The model with the lowest RMSE is Popular based method. Below we examine the problems with recommendation systems
 
+### Challenges
 
-```{r}
+**Data Sparsity**: When new items are added to system, they need to be rated by substantial number of users before they could be recommended to users who have similar tastes with the ones rated them.
 
+**Cold Start Problem**: The “cold start" problem happens in recommendation systems due to the lack of information, on users or items. The Cold-Start problem is a wellknown issue in recommendation systems: there is relatively little information about each user, which results in an inability to draw inferences to recommend items to users. 
 
+Lastly, the accuracy improves as the number of items per user. 
 
-```
 
 
 
