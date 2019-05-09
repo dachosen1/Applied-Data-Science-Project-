@@ -19,26 +19,9 @@ Country: The country that the wine is from
 - Variety: The type of grapes used to make the wine (ie Pinot Noir)
 - Winery: The winery that made the wine
 
-### Approach:
-We first plan to do data exploration. We plan to check the quality of description and see if there is any misspelling etc.. Next we plan to do sentiment analysis on the description. Then we will to do a variable selection and build a recommendation system. Finally, we plan to do some data visualizations/dynamic application based on the data and our recommendation results.
-
 
 ## Questions: 
-
-### Step 1: Exploratory Analysis
-- How many reviews does each user provide? What percentage of the data has a reviewer?
-- Calculate total reviews by country and the percentage distribution? 
-- What percentage of the dataset is missing? 
-- How many wine designation exist and what is the distribution? 
-- Calculate the unique Variety in the dataset? 
-- Create a distribution for points and price. Identify any outliers.?
-H- ow many Title is in the dataset?  Calculate the total by Titletype?
-- Trends analysis 
-  - Points distribution by Region, Province, Region_1, Region_2, Title
-  - Variety distribution by Region,  Province, Region_1, Region_2, Title
-
-#### Step 2: Cleaning
-#### Step 3: Analysis: 
+ 
 - What are the factors that influence prices?
 - What kind of segmentation makes sense for this data
 - Create a recommendation system 
