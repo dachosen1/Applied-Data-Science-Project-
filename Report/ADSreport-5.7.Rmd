@@ -1,5 +1,5 @@
 ---
-title: "Applied Data Science Finace Project: Analysis on Wine Reviews"
+title: "Applied Data Science Final Project: Analysis on Wine Reviews"
 output:
   prettydoc::html_pretty:
     theme: leonids
@@ -206,6 +206,12 @@ province.min <- 500
 <p> Majority of the studies focus on analyzing physicochemical laboratory wine data, while little research has been conducted on the content of wine reviews. Mining useful information from wine reviews and tasters preferences can provide new insights from a consumer perspective and business perspective. Therefore, it is meaningful to untilize these data and generate better wine recommendations.</p>
 
 
+This report addresses the follwing : 
+- What are the factors that influence prices?
+- What kind of segmentation makes sense for price?
+- Create a recommendation system for a user 
+- Perform a text analysis on the user review to understand sentiment. 
+  
 # Source of Data
 <body>
 We used <b> <a href = "https://www.kaggle.com/zynicide/wine-reviews" > Wine Reviews</a></b> data which was scraped from <i>WineEntusiast</i> website on November 22nd, 2017 by @zackthoutt on Kaggle. The orginial data also had an index variable which we ignored here since it has no impact on our project. There are 13 variables in total:
@@ -259,18 +265,12 @@ Variable **points** ranges from 80 to 100. Its distribution was close to a bell 
 **Designation** We reseached wine designation to further understand Wine Designation and according to Napa Valley Vinters: Vineyard Designations Optional. Many wineries name the vineyard where the grapes were grown because the winery believes the property produces an unusually high-quality grape. The winery or an independent grower may own the vineyard. When using a vineyard designation on a wine label, federal regulations require that 95% of the grapes be grown in the named vineyard.
 
 ```{r percentage missing}
-tab  <- dat[,lapply(X=.SD,FUN="miss.value"),.SD=names(dat)[-1]]
-tab2 <- data.table(var=names(dat[,-1]),miss=as.numeric(tab))
+tab  <- dat[,lapply(X=.SD,FUN="miss.value")]
 
-# create a plot of all the missing rate 
-barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1, 
-        main="Percentage of Missing Value",ylab="Percentage", ylim=c(0,80),
-        col=rainbow(13),border="white")
+rownames(tab) <- 'Percentage of missing value'
+datatable(tab)
 
-text(x = -0.5 + 1.02*1:tab2[, .N], y = -15, labels = tab2$var,srt = 45)
-space_val = 0 
 
-text(x=-0.4+1:length(tab)*(1+space_val),y=tab,labels=sprintf("%.1f%%",tab),pos=3)
 
 #number of unique values for each variable
 unitab=dat[,lapply(.SD,FUN="get.unique")]
@@ -310,8 +310,8 @@ paste0( dat.row - nrow(dat), ' rows were removed or ', round((dat.row / nrow(dat
 
 
 # Investigation:
-##1. Sentiment Analysis 
-###Overview of *Description*
+## 1. Sentiment Analysis 
+### Overview of *Description*
 
 Suppose we are exploring sales status of different wines in our website. What do we care about most? The answer might be the *Final Point* the testers give out. But some reality need to be considered. 
 First of all, the dataset we have only includes data with points above 80. Comparing to our scoring scale, which is 0-100, scores from 80 to 100 have a strong indication that the testers are relatively like this kind of wine. Under this circumstance, how can we specify the difference among them? 
@@ -358,7 +358,7 @@ ggplot(aes(x=sentiment,y=n, fill=sentiment)) + geom_col() +
 ```
 
 
-##Sentiment analysis of different countries
+## Sentiment analysis of different countries
 
 There are two main factors which influence the quality of a type of wine, one is natural cause and one is man-made cause. The country of origin is the important component in natural cause. Thus, we want to specify if wines from different countries will have different descriptions from testers. With the sentiment perspective, it will be shown as the difference in the distribution of negative and positive sentiment in description.
 Then, we draw a graph of sentiment distribution to see the difference among wines from different counties. As some countries’ wine do not have sufficient recorded review, we just show countries with large amount of data. 
@@ -384,7 +384,7 @@ ggplot(aes(x= country , y=proportion,fill=sentiment)) + geom_col() +
  theme(plot.title = element_text(hjust = 0.5)) 
 ```
 
-##Other interesting finding
+## Other interesting finding
 
 Dividing sentiment in "negative" and "positive" is somewhat sketchy and we have other way to make a more specific classfication. We extract more emotions from descriptions such as "disgust","joy" etc. To our surprise, there exists words containing sentiment like "anger","sad" which seems a little bit strange in a wine description. This interesting finding gives us more hint on our further text analysis.
 
@@ -428,20 +428,21 @@ inner_join(get_sentiments('nrc')) %>%
 
 ```
 
-#2. Text Analysis
+# 2. Text Analysis
 
 The sentiment analysis shows there exits relationship between reviews and points, which is consistent with our common sense. In this part, we continued analyzing wines' review.
 
-##1.1 The length of reviews
+## 1.1 The length of reviews
 
 The plot below shows that the wines with longer reviews tend to have higher points. So texters usually have more opinions to share when he/she thinks the wine is great. It is also worth to notice that the variance of text length tend to be bigger if the wine has higher points. It may imply that even the good wines usually have longer reviews, the length is also influenced by many other factors, such as ttesters' habits. But if the wine is not so good, testers always have less to write down.
 
 ```{r text_length, warning=FALSE}
 textdat <- dat[,.(description=as.character(get(description.name)),
                   points=as.numeric(get(points.name)))]
+
 textdat <- textdat[!(is.na(get(points.name))),]
 
-textdat=textdat[,textlen:=as.numeric(nchar(description))]
+textdat <- textdat[,textlen:=as.numeric(nchar(description))]
 # quantile(textdat$points,probs=seq(0,1,0.25))
 cuts.points <- c(80,86,88,91,100)
 textdat[, eval(points.group.name):=cut2(x=get(points.name), cuts=cuts.points)]
@@ -451,7 +452,7 @@ ggplot(textdat,aes(x=textlen,fill=points.group))+
   geom_histogram(binwidth = 5,stat="count")
 ```
 
-##2. Data Pipeline
+## 2. Data Pipeline
 
 Before analysis on text data, we did some preparation. 
   
@@ -462,8 +463,17 @@ Before analysis on text data, we did some preparation.
 - **Stem the words**: Stem the words in order to reduce the number of total different words appeare in the reviews. For example, this step change "fruit", "fruity", "fruits" all into "fruiti". Even though "fruiti" is not actually a word, it is still understandable.
 
 
-```{r}
-text.tokens=text.prep(textdat,description.name)
+```{r tokenization}
+text.tokens=tokens(textdat$description,what="word",remove_numbers=TRUE,
+                   remove_punct=TRUE,remove_symbols = TRUE, remove_hyphens = TRUE) 
+
+
+```
+
+```{r stopword}
+text.tokens=tokens_select(text.tokens,stopwords(),selection = "remove" ) 
+
+text.tokens=tokens_wordstem(text.tokens,language = "english") 
 ```
 
 - **Create a DFM**: Create a document-feature matrix for later analysis
@@ -475,12 +485,12 @@ text.tokens.dfm <- dfm(text.tokens, tolower = FALSE)
 - **WordCloud**: Use WorldCloud to see the results. "fruit", "acid", "tanni", "cherry", "dry" tend to appear more frequently than others. We should set those words as new variables.
 
 ```{r wordcloud}
-wordcloudData <- data.table(word=colnames(text.tokens.dfm),freq=colSums(text.tokens.dfm))
+wordcloudData <- data.table(word = colnames(text.tokens.dfm),freq = colSums(text.tokens.dfm))
 setorderv(wordcloudData,cols="freq",order=-1)
 wordcloud2(data=wordcloudData,size=1,minSize=0.1)
 ```
 
-##2.3 Term Frequency-Inverse Document Frequency (TF-IDF)
+## 2.3 Term Frequency-Inverse Document Frequency (TF-IDF)
 
 TF-IDF is a powerful technique for enhancing the information contained within our document-frequency matrix. The tf-idf weight measures how important a word is to a document in a collection or corpus. The importance increases proportionally to the number of times a word appears in the document but is offset by the frequency of the word in the corpus (data-set). To complete this process, we need two steps listed below:
 
@@ -489,7 +499,7 @@ TF-IDF is a powerful technique for enhancing the information contained within ou
 - Penalize terms occur frequency across corpus and inverse document frequency (IDF) 
 
 ```{r TF-IDF}
-var.chosen<-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh',
+var.chosen <-c('fruit','acid','palat','aroma','cherri','tannin','ripe','dri','spice','rich','fresh',
               'berri','oak','plum','textur','sweet','appl','full','blend','balanc','bodi','blackberri',
               'light','soft','age','structur','white','crisp','fruiti','citrus','dark','miner','herb',
               'Cabernet','raspberri','vanilla','bright','pepper','firm','green','lemon','juici','peach',
@@ -523,9 +533,9 @@ Based on wordcloud plot and TF-IDF, we selected top 100 frequetent words. Then w
 text.tokens.df <- cbind(points = textdat$points, data.frame(text.tokens.matrix))
 
 set.seed(423)
-indexes=createDataPartition(text.tokens.df$points,times=1,p=0.7,list=F) # 70% as train data 
-train=text.tokens.df[indexes,]
-test=text.tokens.df[-indexes,]
+indexes = createDataPartition(text.tokens.df$points,times=1,p=0.7,list=F) # 70% as train data 
+train = text.tokens.df[indexes,]
+test = text.tokens.df[-indexes,]
 ```
 
 ```{r model}
@@ -568,7 +578,7 @@ Lastly, when building the model, all the words are coming from previous dataset 
 # Areas of Future Investigation
 To tackle the limitaions for text analysis in this project, we tried another approach. We first followed the same procedure for text cleaning. After getting the word-document matrix, we used SVD (singluar vector decomposition) to reduce the number of predictors. However, to use SVD, we need to fully trust the math since each column is no longer a word that we can intepret. There were signals missing in the dimension reduction process and we didn't know what those are. Then we built a decison tree model to predict points. However, our model ended up predicting the same point for all the wine, hence we ended up going back to the original method for now. Even so, this is something interesting for us to do future investigation. A plausible step is to investigate on feature engineering. <br>
 
-#3. Recommendation System
+# 3. Recommendation System
 
 ```{r}
 dat.recom <- dat[, mean(get(points.name)), by = .(get(taster.name), get(variety.name))]
@@ -694,7 +704,7 @@ The model with the lowest RMSE is Popular based method. Below we examine the pro
 
 Lastly, the accuracy improves as the number of items per user. 
 
-#4. Factors that influence Price
+# 4. Factors that influence Price
 
 For this analysis, we are going to analyze the factor that impact prices from business owners perspectives. This analysis can be used to determine the types of wine, winery to build, where to dedicate resources to build a winery, and given that the business owner wants to target a specific market segment. 
 
@@ -705,8 +715,9 @@ To understand the factors that impact price. Prior to building the regression mo
 
 
 ```{r}
-data.numeric <- dat
+
 dat$description <- NULL
+data.numeric <- dat
 
 data.numeric$country <- as.numeric(as.factor(data.numeric$country))
 data.numeric$designation <- as.numeric(as.factor(data.numeric$designation))
