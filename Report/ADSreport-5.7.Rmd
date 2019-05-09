@@ -577,7 +577,8 @@ setnames(dat.recom, old = c('get','get.1','V1'), new = c('Taster Name','Variety'
 
 ```{r real rating class}
 # convert into a s4 class 
-data_matrix <- as(dat, 'realRatingMatrix')
+data_matrix <- as(dat.recom, 'realRatingMatrix')
+image(data_matrix[1:19,1:50])
 ```
 
 ```{r train and test split}
@@ -588,12 +589,12 @@ test <- data_matrix[-split,]
 
 mean(getRatings(data_matrix), na.rm = TRUE)
 
-es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 1)
+es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
 ```
 
 ### **Calculate a similarity matrix**
 
-The similarity matrix allows you to understand how similar users are to each other. We are going to show the top 7. 
+The similarity matrix allows you to understand how similar users are to each other. We are going to show the top 4. 
 
 ```{r similarity matrix}
 # similarity matrix using the euclidean distance 
@@ -705,6 +706,7 @@ To understand the factors that impact price. Prior to building the regression mo
 
 ```{r}
 data.numeric <- dat
+dat$description <- NULL
 
 data.numeric$country <- as.numeric(as.factor(data.numeric$country))
 data.numeric$designation <- as.numeric(as.factor(data.numeric$designation))
