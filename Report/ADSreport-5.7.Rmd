@@ -938,3 +938,6 @@ Heights, MA: Allyn and Bacon.
 
 [12] Madhukar, M. (2014). Challenges & Limitation in Recommender Systems. International Journal of Latest Trends in Engineering and Technology (IJLTET), 4(3), 138-142. Retrieved May 01, 2019.
 
+[13] HOME. (n.d.). Retrieved May 05, 2019, from https://stats.idre.ucla.edu/r/dae/multinomial-logistic-regression/
+
+[14] HOME. (n.d.). Retrieved from https://stats.idre.ucla.edu/r/dae/ordinal-logistic-regression/
