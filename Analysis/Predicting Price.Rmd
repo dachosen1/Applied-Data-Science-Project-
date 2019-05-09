@@ -1,0 +1,19 @@
+---
+title: "How Accurately can you predict Price"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library, include=FALSE}
+library(data.table)
+library(DT)
+```
+
+```{r read data, echo=FALSE}
+dat <- fread(input = '../Data/wine.clean.csv',verbose = FALSE,na.strings=c(""))
+dat <- dat[,-1]
+
+```

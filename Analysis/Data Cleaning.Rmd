@@ -12,12 +12,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r library, include=FALSE}
 library(data.table)
 library(DT)
+library(tidyverse)
 ```
 
 
 ```{r read data, echo=FALSE}
 dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
 ```
+
+```{r functions}
+```
+
 
 ```{r functions}
 percentage.table <- function(x, digits = 1){
@@ -44,18 +49,18 @@ head(dat)
 
 ```{r constants}
 country.name <- "country"
-description.name <- "description"           
-designation.name <- "designation"           
-points.name <- "points"               
-price.name <- "price"                 
-province.name <- "province"              
-region_1.name <- "region_1"              
-region_2.name <- "region_2"             
-taster.name <- "taster_name"           
+description.name <- "description"
+designation.name <- "designation"
+points.name <- "points"
+price.name <- "price"
+province.name <- "province"
+region_1.name <- "region_1"
+region_2.name <- "region_2"
+taster.name <- "taster_name"
 twitter.name <- "taster_twitter_handle" 
-title.name <- "title"                 
-variaty.name <- "variety"              
-winery.name <- "winery"               
+title.name <- "title"
+variaty.name <- "variety"
+winery.name <- "winery"
 
 dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
 dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
@@ -65,9 +70,16 @@ single.var <- c(points.name, price.name, country.name)
 
 
 ```{r percentage missing}
+```
+
+
+```{r percentage missing}
 # transpose missing value per column 
 tab <- t(dat[,lapply(X=.SD,FUN="miss.value")])
-tab
+```
+
+
+```{r percentage missing}
 # conver to numeric 
 tab2 <- data.table(var=names(dat),miss=as.numeric(tab))
 
@@ -80,3 +92,75 @@ barplot(height=tab2$miss, names.arg=tab2$var,space=0.01, las=1,
   text(x=-0.4+1:length(tab)*(1+space_val),y=tab,labels=sprintf("%.1f%%",tab),pos=3)
 ```
 
+
+
+```{r}
+# unique twitter names 
+levels(as.factor(dat$taster_twitter_handle))
+levels(as.factor(dat$taster_name))
+
+# remove twitter names 
+ dat$taster_twitter_handle <- NULL
+```
+
+
+## Winery 
+```{r}
+winery.designation <- dat %>%
+  select(designation,winery)
+winery.designation[winery.designation$winery == ':Nota Bene',]
+winery.designation %>%
+  group_by(winery) %>%
+  summarize(n = n())
+```
+
+We reseached wine designation to further understand Wine Designation and according to Napa Valley Vinters: 
+
+Vineyard Designations Optional. Many wineries name the vineyard where the grapes were grown because the winery believes the property produces an unusually high-quality grape. The winery or an independent grower may own the vineyard. When using a vineyard designation on a wine label, federal regulations require that 95% of the grapes be grown in the named vineyard.
+
+```{r}
+# evaluate designation as no wine designation 
+dat[is.na(get(designation.name)), eval('designation') := 'No Wine Designation']
+```
+
+
+# region 
+```{r}
+dat[is.na(get(region_1.name)), eval('region_1') := get(province.name)]
+dat[is.na(get(region_2.name)), eval('region_2') := get(region_1.name)]
+
+```
+
+
+# Taster name 
+
+```{r}
+dat[is.na(get(taster.name)), eval('taster_name') := 'Anonymous']
+```
+
+# price 
+```{r}
+dat.final <- dat[complete.cases(dat)]
+
+paste0( nrow(dat) - nrow(dat.final), ' rows were removed or ', round((nrow(dat) / nrow(dat.final) - 1) * 100,2),'%' , 'of the data')
+```
+
+
+```{r}
+# transpose missing value per column 
+tab <- t(dat.final[,lapply(X=.SD,FUN="miss.value")])
+tab
+```
+
+
+
+
+```{r}
+write.csv(dat.final, '../Data/wine.clean.csv')
+```
+
+Sources: https://napavintners.com/wines/how_to_read_a_wine_label.asp
+
+https://winefolly.com/review/french-wine-labels-and-terms/ 
+
+https://www.ttb.gov/pdf/brochures/p51901.pdf

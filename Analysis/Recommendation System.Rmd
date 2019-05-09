@@ -1,6 +1,9 @@
 ---
 title: "Recommendation System"
-output: rmarkdown::github_document
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
 ---
 
 ```{r setup, include=FALSE}
@@ -12,113 +15,135 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(tidyverse)
 library(recommenderlab)
+library(DT)
+library(prettydoc)
 ```
 
 
 ```{r read data, echo=FALSE}
-dat <- fread(input = '../Data/winemag-data-130k-v2.csv',verbose = FALSE,na.strings=c(""))
+dat <- fread(input = '../Data/wine.clean.csv',verbose = FALSE,na.strings=c(""))
 ```
 
 ```{r constants}
-country.name <- "country"
-description.name <- "description"           
-designation.name <- "designation"           
-points.name <- "points"               
-price.name <- "price"                 
-province.name <- "province"              
-region_1.name <- "region_1"              
-region_2.name <- "region_2"             
-taster.name <- "taster_name"           
-twitter.name <- "taster_twitter_handle" 
-title.name <- "title"                 
-variaty.name <- "variety"              
-winery.name <- "winery"               
+points.name <- "points"
+taster.name <- "taster_name"
+variety.name <- "variety"
 
-dat[,eval(points.name)] <- as.numeric(dat[,get(points.name)])
-dat[,eval(price.name)] <- as.numeric(dat[,get(price.name)])
+dat <- dat[, mean(get(points.name)), by = .(get(taster.name), get(variety.name))]
+setnames(dat, old = c('get','get.1','V1'), new = c('Taster Name','Variety','Point'))
 
-single.var <- c(points.name, price.name, country.name)
 ```
 
-```{r}
-dat <- dat %>%
- select(taster_name, variety,points)
-
-dat <- dat[complete.cases(dat)]
-
+```{r real rating class}
 # convert into a s4 class 
 data_matrix <- as(dat, 'realRatingMatrix')
 image(data_matrix[1:19,1:50])
-
-# z score normalization 
-data_matrix_znorm <-normalize(x = data_matrix, method='Z-score')
-
-image
-# center normalization 
-data_matrix_cnorm <-normalize(x = data_matrix, method='center')
 ```
 
-```{r}
+```{r train and test split}
 
-recommenderRegistry$get_entry("POPULAR", type ="realRatingMatrix")
-# recommendation for normal data 
-recom <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
-pred <- predict(recom,data_matrix, n = 2)
-as.data.frame(mapply(c, getList(pred), 
-                     getRatings(pred), 
-                     as.list(rowMeans(data_matrix, na.rm = TRUE))))
+set.seed(256)
+split <- sample(x = nrow(data_matrix),size = 0.8*nrow(data_matrix))
+train <- data_matrix[split,]
+test <- data_matrix[-split,]
 
-#as(getTopNLists(x = pred, 2), 'list')
 
-# recommendation for normalized data by z score
-recom2 <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
-pred2 <- predict(recom,data_matrix_znorm, n = 2)
-as.data.frame(mapply(c, getList(pred2), 
-                     getRatings(pred2), 
-                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
-#as(getTopNLists(x = pred2, 2), 'list')
+mean(getRatings(data_matrix), na.rm = TRUE)
 
-# recommendation for normalized data by center
-recom3 <- Recommender(data_matrix,method='POPULAR',parameter = list(normalize=NULL))
-pred3 <- predict(recom,data_matrix_znorm, n = 2)
-as.data.frame(mapply(c, getList(pred3), 
-                     getRatings(pred3), 
-                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
-#as(getTopNLists(x = pred3, 2), 'list')
 
+es <- evaluationScheme(data_matrix, method = 'split', train = 0.8, given = 5)
 ```
 
-```{r}
+Calculate a similarity matrix 
 
+```{r similarity matrix}
+
+# similarity matrix using the euclidean distance 
+round(similarity(normalize(train[1:7]),method = 'euclidean'),3)
+
+# similarity matrix using the cosine distance
+round(similarity(normalize(train[1:7]),method = 'cosine'),3)
+
+# similarity matrix using the pearson distance
+round(similarity(normalize(train[1:7]),method = 'pearson'),3)
+```
+
+
+# User Based Collaborative Filter: 
+
+
+```{r UBCF}
 recommenderRegistry$get_entry('UBCF', type = 'realRatingMatrix')
-# recommendation for normal data 
-recom4 <- Recommender(data_matrix,method='UBCF',parameter = list(method = 'Cosine', nn = 2))
-pred4 <- predict(recom4,data_matrix, type = 'ratingMatrix')
-as.data.frame(mapply(c, getList(pred4), 
-                     getRatings(pred4), 
-                     as.list(rowMeans(data_matrix, na.rm = TRUE))))
 
-#as(getTopNLists(x = pred4, 2), 'list')
+recom.ubcf <- Recommender(train,method='UBCF',parameter = list(method = 'Cosine'))
+pred.ubcf <- predict(recom.ubcf,train,n = 1)
 
-# recommendation for normal data 
-recom5 <- Recommender(data_matrix_znorm,method='UBCF',parameter = list(
- method = 'Cosine', nn = 2))
-pred5 <- predict(recom5,data_matrix_znorm, type = 'ratingMatrix')
-as.data.frame(mapply(c, getList(pred5), 
-                     getRatings(pred5), 
-                     as.list(rowMeans(data_matrix_znorm, na.rm = TRUE))))
-#as(getTopNLists(x = pred5, 2), 'list')
+as.data.frame(mapply(c, 'Wine Recommendation' = getList(pred.ubcf), 
+                     'Wine Rating' = getRatings(pred.ubcf),
+                     'Avg Rating' = as.list(rowMeans(train))))
 
-# recommendation for normal data 
-recom6 <- Recommender(data_matrix,method='UBCF',parameter = list(
- method = 'Cosine', nn = 2))
-pred6 <- predict(recom6,data_matrix, type = 'ratingMatrix')
-as.data.frame(mapply(c, getList(pred6), 
-                     getRatings(pred6), 
-                     as.list(rowMeans(data_matrix, na.rm = TRUE))))
+recom.ubcf.2 <- Recommender( data = getData(es, 'train'),
+                             method = 'UBCF')
 
-as(getTopNLists(x = pred6, 2), 'list')
+pred.ubcf.2 <- predict(recom.ubcf.2,newdata = getData(es, 'known'), type = 'ratings')
+
+calcPredictionAccuracy(pred.ubcf.2, data = getData(es, 'unknown'))
+
+
 ```
+
+## Popular Methods 
+
+```{r Popular Method}
+recommenderRegistry$get_entry("POPULAR", type ="realRatingMatrix")
+
+# recommendation for normal data 
+recom.popular <- Recommender(train,method='POPULAR')
+pred.popular <- predict(recom.popular,data_matrix, n = 1)
+
+# top recommendation 
+data.frame(mapply(c, 'Wine Recommendation' = getList(pred.popular), 
+                  'Wine Rating' = getRatings(pred.popular),
+                     'Avg Rating' = as.list(rowMeans(train))))
+
+```
+
+Item-based Collaborative Filtering
+
+```{r}
+
+recommenderRegistry$get_entry('IBCF', type = 'realRatingMatrix')
+
+recom.ibcf <- Recommender(train,method='IBCF')
+pred.ibcf <- predict(recom.ubcf,train, n = 1, type = 'ratings')
+
+as.data.frame(mapply(c, 'Receommendatoin' = getList(pred.ibcf), 
+                     'Wine Rating' = getRatings(pred.ibcf),
+                     'Avg Rating' = as.list(rowMeans(train))))
+
+
+calcPredictionAccuracy(pred.ibcf, test)
+```
+
+
+# Built recommender 
+
+
+```{r}
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
 
 
 
