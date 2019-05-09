@@ -2,7 +2,7 @@
 title: "Recommendation System"
 output:
   prettydoc::html_pretty:
-    theme: tactile
+    theme: leonids
     highlight: github
 ---
 
