@@ -18,11 +18,6 @@ library(dplyr)
 library(plotly)
 library(treemap)
 library(DT)
-library(wordcloud)
-library(tidytext)
-library(stringr)
-library(RColorBrewer)
-library(ggthemes)
 ```
 
 
@@ -338,28 +333,4 @@ renderLeaflet({
 
 
 ```
-
- 
-<!-- Reviews Analysis -->
-<!-- ==================================== -->
-
-<!-- ```{r} -->
-<!-- renderPlot({ -->
-<!--   subdat <- dat %>% select(variety.name,country.name,points.name,province.name, winery.name,description.name) -->
-<!--   subdat$descriptioncount <- str_count(string = subdat$description, pattern = '\\S+') -->
-
-<!--   wordcloudData <- subdat%>% -->
-<!--     unnest_tokens(output = word, input = description) %>% -->
-<!--     anti_join(stop_words)%>% -->
-<!--     group_by(word)%>% -->
-<!--     summarize(freq = n())%>% -->
-<!--     arrange(desc(freq))%>% -->
-<!--     ungroup()%>% -->
-<!--     data.frame() -->
-
-<!--   wordcloud(words = wordcloudData$word,wordcloudData$freq,scale=c(2,0.5), -->
-<!--           max.words = 100, colors = brewer.pal(10,'Spectral')) -->
-
-<!-- }) -->
-<!-- ``` -->
 
